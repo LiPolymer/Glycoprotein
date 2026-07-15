@@ -1,93 +1,198 @@
 # Glycoprotein
 
+一个 ~~比较新奇的~~ IPC/微服务通讯库. 节点能够自动发现彼此, 注册可调用的函数/动作/事件, 并通过 RPC, 即发即弃分发以及发布/订阅消息进行通信, 所有内容均通过可插拔的传输层后端传输.
 
+## 架构
 
-## Getting started
+```mermaid
+flowchart LR
+    Incoming(传入的请求) --> RC
+    QC --> Outgoing(发出的请求)
+    EE --> Publish(发布事件)
+    Subscribe(订阅事件) --> ER
+    BP --> Broadcast(广播信标)
+    Discovery(发现与过期) --> BT
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+    subgraph GlycoComplex [GlycoComplex - Node 节点]
+        RC[ResponseConductor<br/>Actions + Functions]
+        QC[QueryConductor<br/>RPC Client]
+        EE[EventEmitter]
+        ER[EventReceiver]
+        BP[BeaconPresenter]
+        BT[BeaconTracker]
+    end
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+    subgraph Transports [传输层实现 - Transports]
+        direction TB
+        T1[UnixDomainMeshConnexon]
+        T2[UnixDomainMasteredConnexon]
+        T3[Custom - 实现 IConnexon]
+    end
 
-## Add your files
-
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
+    GlycoComplex <--> |IConnexon 接口| Transports
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/LiPolymer/Glycoprotein.git
-git branch -M main
-git push -uf origin main
+
+## 快速开始
+
+### 基本用法
+
+```csharp
+using Glycoprotein;
+using Glycoprotein.Connexon;
+
+// --- 节点 Alpha: 提供 math_add 和一个动作 ---
+var dir = Path.Combine(Path.GetTempPath(), $"demo-{Guid.NewGuid()}");
+Directory.CreateDirectory(dir);
+
+var alpha = new GlycoComplex("alpha", new UnixDomainMeshConnexon("alpha", dir));
+
+alpha
+    .AddFunction<AddRequest, AddResponse>("math_add",
+        req => new AddResponse(req.A + req.B))
+    .AddAction("do_status", () =>
+        Console.WriteLine("Status action fired!"));
+
+alpha.OnDiscovered += beacon => Console.WriteLine($"[alpha] 已发现: {beacon.Id}");
+
+// --- 节点 Beta: 调用 alpha ---
+var beta = new GlycoComplex("beta", new UnixDomainMeshConnexon("beta", dir));
+
+// 启动两个节点, 让它们相互发现
+alpha.Start();
+beta.Start();
+
+await Task.Delay(2000); // 等待发现信标的广播
+
+// Beta 调用 Alpha 的 math_add
+var result = await beta.CallAsync("alpha", "math_add",
+    JsonSerializer.SerializeToElement(new AddRequest(10, 25)));
+Console.WriteLine($"10 + 25 = {result?.GetProperty("Result").GetInt32()}");
+
+// Beta 在 Alpha 上分发一个动作
+await beta.DispatchAsync("alpha", "do_status");
+
+// 清理
+alpha.Dispose();
+beta.Dispose();
+Directory.Delete(dir, true);
+
+// --- 上文使用的记录(Record)类型 ---
+record AddRequest(int A, int B);
+record AddResponse(int Result);
 ```
 
-## Integrate with your tools
+### 事件发布/订阅
 
-* [Set up project integrations](https://gitlab.com/LiPolymer/Glycoprotein/-/settings/integrations)
+```csharp
+// 声明一个事件类型
+record HeartbeatMessage(string NodeId, DateTime Time);
 
-## Collaborate with your team
+// 节点 A 发布心跳
+alpha.AddEvent<HeartbeatMessage>("evt_heartbeat");
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+// 节点 B 订阅节点 A 的心跳
+beta.On<HeartbeatMessage>("alpha", "evt_heartbeat",
+    msg => Console.WriteLine($"[Beta] 收到心跳: 来自 {msg.NodeId}, 时间 {msg.Time}"));
 
-## Test and Deploy
+// 节点 A 触发事件
+await alpha.EmitAsync("evt_heartbeat",
+    new HeartbeatMessage("alpha", DateTime.UtcNow));
+```
 
-Use the built-in continuous integration in GitLab.
+## 传输层
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+### UnixDomainMeshConnexon(全网状拓扑)
 
-***
+每个节点在共享目录中绑定一个 `.sock` 文件. 节点通过扫描其他的套接字文件来发现彼此, 连接到每一个对等节点, 并将收到的消息转发给所有已连接的对等节点.
 
-# Editing this README
+```csharp
+var dir = Path.Combine(Path.GetTempPath(), "mesh-demo");
+Directory.CreateDirectory(dir);
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+var node = new GlycoComplex("node-1", new UnixDomainMeshConnexon("node-1", dir));
+```
 
-## Suggestions for a good README
+### UnixDomainMasteredConnexon(中心辐射型拓扑)
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+一个节点会成为中心节点(第一个绑定 `hub.sock` 的节点). 所有其他节点作为客户端连接到该中心. 中心节点负责在客户端之间中继消息. 如果中心节点宕机, 剩余的节点会竞选成为新的中心节点.
 
-## Name
-Choose a self-explaining name for your project.
+```csharp
+var dir = Path.Combine(Path.GetTempPath(), "hub-demo");
+Directory.CreateDirectory(dir);
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+var node = new GlycoComplex("node-1", new UnixDomainMasteredConnexon("node-1", dir));
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+### 自定义传输
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+实现 `IConnexon` 接口以添加你自己的传输方式(TCP, 命名管道, WebSocket 等) ~~比如现在就有一个不推荐使用的UDP多播连接子实现www~~:
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```csharp
+public interface IConnexon : IDisposable
+{
+    event Action<Glycosyl>? OnGlycosylReceived;
+    CancellationToken CancellationToken { get; }
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+    void Start();
+    void Stop();
+    Task SendAsync(Glycosyl glycosyl, CancellationToken ct = default);
+    Task SendBytesAsync(byte[] data, CancellationToken ct = default);
+    void SendBytes(byte[] data);
+    void Send(Glycosyl glycosyl);
+}
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+## 节点 API 参考
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+`GlycoComplex` 提供了一套用于定义节点能力的流式 API:
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+| 方法 | 描述 |
+|---|---|
+| `AddAction(fid, action)` | 注册一个即发即弃(fire-and-forget)动作 |
+| `AddFunction<TReq, TRes>(fid, func)` | 注册一个强类型 RPC 函数 |
+| `AddFunction(fid, func)` | 注册一个原生(JsonElement)RPC 函数 |
+| `AddEvent(fid)` / `AddEvent<T>(fid)` | 声明一个需发布的事件 |
+| `On(gid, fid, handler)` | 订阅一个事件(无类型) |
+| `On<T>(gid, fid, handler)` | 订阅一个强类型事件 |
+| `OnRaw(gid, fid, handler)` | 订阅一个原生 JsonElement 事件 |
+| `CallAsync(gid, fid)` | 调用远程函数并获取结果 |
+| `DispatchAsync(gid, fid)` | 即发即弃地调用一个远程动作 |
+| `EmitAsync(fid)` / `EmitAsync<T>(fid, arg)` | 发布一个事件 |
+| `EmitRawAsync(fid, arg)` | 发布一个原生事件 |
+| `Start()` / `StartAsync()` | 开始广播信标并处理消息 |
+| `Dispose()` | 停止节点并释放所有资源 |
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+## 消息(传输格式)
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+所有消息都继承自抽象的 `Glycosyl` 类, 并使用 `Type` 区分字段序列化为 JSON:
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+| 类型 (Type) | 用途 | 关键字段 |
+|---|---|---|
+| `Beacon` | 节点能力宣告 | `Id`, `Fields[]` |
+| `Query` | RPC 请求 | `Gid`, `Fid`, `Payload`, `Qid` |
+| `Reply` | RPC 响应 | `Payload`, `Qid` |
+| `Event` | 发布/订阅事件 | `Gid`, `Fid`, `Arg` |
 
-## License
-For open source projects, say how it is licensed.
+```json
+{
+  "Type": "Query",
+  "Gid": "alpha",
+  "Fid": "math_add",
+  "Payload": { "A": 10, "B": 25 },
+  "Qid": "a1b2c3d4-..."
+}
+```
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+## 字段类型
+
+| 字段类型 | 行为 |
+|---|---|
+| `Action` | 即发即弃 - 不期望收到响应 ~~当然你要等它完成也是支持的~~ |
+| `Function` | 请求/响应 - 支持为请求和响应的负载(Payload)提供可选的 JSON Schema |
+| `Event` | 发布/订阅 - 支持为事件参数提供可选的 JSON Schema |
+
+## 依赖项
+
+| 包名 | 版本 | 用途 |
+|---|---|---|
+| `JsonSchema.Net` | 9.2.2 | 用于验证函数/事件负载的 JSON Schema |
