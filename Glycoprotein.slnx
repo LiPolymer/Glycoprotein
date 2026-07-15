@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Glycoprotein/Glycoprotein.csproj" />
+  <Project Path="Glycoprotein.Debug/Glycoprotein.Debug.csproj" />
+</Solution>
