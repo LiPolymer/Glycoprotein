@@ -8,6 +8,7 @@ namespace Glycoprotein;
 public sealed class GlycoComplex : IDisposable {
     readonly ResponseConductor _responseConductor;
     readonly EventEmitter _eventEmitter;
+    readonly BeaconTracker _tracker;
     readonly BeaconPresenter _beaconPresenter;
     readonly QueryConductor _queryConductor;
     readonly EventReceiver _eventReceiver;
@@ -15,19 +16,18 @@ public sealed class GlycoComplex : IDisposable {
     bool _disposed;
 
     public event Action<Glycosyl.Beacon>? OnDiscovered {
-        add => Tracker.OnDiscovered += value;
-        remove => Tracker.OnDiscovered -= value;
+        add => _tracker.OnDiscovered += value;
+        remove => _tracker.OnDiscovered -= value;
     }
 
     public event Action<Glycosyl.Beacon>? OnExpired {
-        add => Tracker.OnExpired += value;
-        remove => Tracker.OnExpired -= value;
+        add => _tracker.OnExpired += value;
+        remove => _tracker.OnExpired -= value;
     }
 
     public string Id { get; }
     public IConnexon Connexon { get; }
-    public BeaconTracker Tracker { get; }
-    public IReadOnlyList<Glycosyl.Beacon> Presenters { get => Tracker.ActivePresenters; }
+    public IReadOnlyList<Glycosyl.Beacon> Presenters { get => _tracker.ActivePresenters; }
 
     public GlycoComplex(string id, IConnexon? connexon = null) {
         Id = id;
@@ -35,8 +35,8 @@ public sealed class GlycoComplex : IDisposable {
         _responseConductor = new ResponseConductor(Connexon, id);
         _eventEmitter = new EventEmitter(Connexon, id);
         _beaconPresenter = new BeaconPresenter(Connexon);
-        Tracker = new BeaconTracker(Connexon);
-        _queryConductor = new QueryConductor(Connexon, () => Tracker.ActivePresenters);
+        _tracker = new BeaconTracker(Connexon);
+        _queryConductor = new QueryConductor(Connexon, () => _tracker.ActivePresenters);
         _eventReceiver = new EventReceiver(Connexon);
     }
 
@@ -150,7 +150,7 @@ public sealed class GlycoComplex : IDisposable {
         _started = true;
 
         Connexon.Start();
-        Tracker.Start();
+        _tracker.Start();
 
         if (!BuildAndPublishBeacon()) return;
         _ = _beaconPresenter.StartAsync(Connexon.CancellationToken);
@@ -180,7 +180,7 @@ public sealed class GlycoComplex : IDisposable {
     public void Dispose() {
         if (_disposed) return;
         _disposed = true;
-        Tracker.Dispose();
+        _tracker.Dispose();
         _queryConductor.Dispose();
         _responseConductor.Dispose();
         _eventReceiver.Dispose();

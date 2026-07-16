@@ -19,12 +19,9 @@ public sealed class EventEmitter(IConnexon connexon, string gid) {
     }
 
     public void AddEvent<T>(Field.Event field) {
-        _events[field.Id] = (new Field.Event {
-            Id = field.Id,
-            FriendlyName = field.FriendlyName,
-            Description = field.Description,
+        _events[field.Id] = (field with { 
             CallArgSchema = JsonSerializer
-                .SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T)))
+                .SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T))) 
         },typeof(T));
     }
     
