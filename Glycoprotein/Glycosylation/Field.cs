@@ -4,22 +4,24 @@ using System.Text.Json.Serialization;
 namespace Glycoprotein.Glycosylation;
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "Type")]
-[JsonDerivedType(typeof(Field.Action), "Action")]
-[JsonDerivedType(typeof(Field.Function), "Function")]
+[JsonDerivedType(typeof(Field.Method), "Method")]
 [JsonDerivedType(typeof(Field.Event), "Event")]
-public abstract class Field {
+public abstract record Field {
     public required string Id { get; init; }
-    public string? FriendlyName { get; set; }
-    public string? Description { get; set; }
-    
-    public class Action : Field { }
+    public string? FriendlyName { get; init; }
+    public string? Description { get; init; }
 
-    public class Function : Field {
-        public JsonElement? QuerySchema { get; set; }
-        public JsonElement? ReceiptSchema { get; set; }
+    public record Method : Field {
+        public JsonElement? QuerySchema { get; init; }
+        public JsonElement? ReceiptSchema { get; init; }
+        
+        [JsonIgnore]
+        public bool IsAction { get => QuerySchema == null && ReceiptSchema == null; }
+        [JsonIgnore]
+        public bool IsActable { get => QuerySchema == null; }
     }
 
-    public class Event : Field {
-        public JsonElement? CallArgSchema { get; set; }
+    public record Event : Field {
+        public JsonElement? CallArgSchema { get; init; }
     }
 }

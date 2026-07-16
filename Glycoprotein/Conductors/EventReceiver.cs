@@ -5,7 +5,7 @@ using Glycoprotein.Glycosylation;
 
 namespace Glycoprotein.Conductors;
 
-public class EventReceiver : IDisposable {
+public sealed class EventReceiver : IDisposable {
     readonly ConcurrentDictionary<(string Gid, string Fid), Action<JsonElement?>> _handlers = [];
     readonly IConnexon _connexon;
     bool _disposed;

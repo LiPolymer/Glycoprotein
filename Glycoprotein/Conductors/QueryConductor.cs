@@ -29,26 +29,27 @@ public sealed class QueryConductor : IDisposable {
     }
 
     public async Task DoActionAsync(string gid, string fid, CancellationToken ct = default) {
-        ValidateField(gid, fid, typeof(Field.Action));
+        ValidateField(gid, fid);
         await SendQueryAndWaitAsync(gid, fid, null, ct);
     }
 
     public async Task<JsonElement?> CallFunctionAsync(string gid, string fid, JsonElement? param = null, CancellationToken ct = default) {
-        ValidateField(gid, fid, typeof(Field.Function), param);
+        ValidateField(gid, fid, param);
         return await SendQueryAndWaitAsync(gid, fid, param, ct);
     }
 
-    void ValidateField(string gid, string fid, Type expectedType, JsonElement? param = null) {
+    void ValidateField(string gid, string fid, JsonElement? param = null) {
         IReadOnlyList<Glycosyl.Beacon>? beacons = _beaconProvider();
         Field? field = beacons?.FirstOrDefault(b => b.Id == gid)?.Fields.FirstOrDefault(f => f.Id == fid);
-        if (field == null) throw new InvalidOperationException($"Field '{fid}' on '{gid}' is not exist.");
-        if (field?.GetType() != expectedType)
-            throw new InvalidOperationException($"Field '{fid}' on '{gid}' is not a {expectedType.Name}.");
-        if (param == null || field is not Field.Function fn || fn.QuerySchema == null) return;
-        EvaluationResults er = JsonSchema.Build(fn.QuerySchema.Value).Evaluate(param.Value);
-        if (!er.IsValid)
-            throw new InvalidOperationException(
-                string.Join('\n', er.Errors?.Select(kvp => $"{kvp.Key} : {kvp.Value}") ?? ["???"]));
+        if (field is null) throw new InvalidOperationException($"Field '{fid}' on '{gid}' is not exist");
+        if (field is not Field.Method method) throw new InvalidOperationException($"Field '{fid}' on '{gid}' is not a Method.");
+        if (param == null || method.QuerySchema == null) return;
+        EvaluationResults er = JsonSchema.Build(method.QuerySchema.Value).Evaluate(param.Value);
+        if (!er.IsValid) {
+            throw new InvalidOperationException(string.Join('\n', er.Errors?
+                                                                .Select(kvp => $"{kvp.Key} : {kvp.Value}") 
+                                                                  ?? ["???"]));
+        }
     }
 
     async Task<JsonElement?> SendQueryAndWaitAsync(string gid, string fid, JsonElement? param, CancellationToken ct) {

@@ -41,17 +41,52 @@ public sealed class GlycoComplex : IDisposable {
     }
 
     public GlycoComplex AddAction(string fid, Action action) {
-        _responseConductor.AddAction(new Field.Action { Id = fid }, action);
+        _responseConductor.AddAction(new Field.Method { Id = fid }, action);
+        return this;
+    }
+
+    public GlycoComplex AddAction(Field.Method field, Action action) {
+        _responseConductor.AddAction(field, action);
         return this;
     }
 
     public GlycoComplex AddFunction<TReq, TRes>(string fid, Func<TReq, TRes> func) {
-        _responseConductor.AddFunction(new Field.Function { Id = fid }, func);
+        _responseConductor.AddFunction(new Field.Method { Id = fid }, func);
+        return this;
+    }
+
+    public GlycoComplex AddFunction<TReq, TRes>(Field.Method field, Func<TReq, TRes> func) {
+        _responseConductor.AddFunction(field, func);
         return this;
     }
 
     public GlycoComplex AddFunction(string fid, Func<JsonElement?, JsonElement?> func) {
-        _responseConductor.AddBareFunction(new Field.Function { Id = fid }, func);
+        _responseConductor.AddBareFunction(new Field.Method { Id = fid }, func);
+        return this;
+    }
+
+    public GlycoComplex AddFunction(Field.Method field, Func<JsonElement?, JsonElement?> func) {
+        _responseConductor.AddBareFunction(field, func);
+        return this;
+    }
+
+    public GlycoComplex AddGet<T>(string fid, Func<T> query) {
+        _responseConductor.AddGet(new Field.Method { Id = fid }, query);
+        return this;
+    }
+
+    public GlycoComplex AddGet<T>(Field.Method field, Func<T> query) {
+        _responseConductor.AddGet(field, query);
+        return this;
+    }
+
+    public GlycoComplex AddSet<T>(string fid, Action<T> reactor) {
+        _responseConductor.AddSet(new Field.Method { Id = fid }, reactor);
+        return this;
+    }
+
+    public GlycoComplex AddSet<T>(Field.Method field, Action<T> reactor) {
+        _responseConductor.AddSet(field, reactor);
         return this;
     }
 
@@ -60,8 +95,18 @@ public sealed class GlycoComplex : IDisposable {
         return this;
     }
 
+    public GlycoComplex AddEvent(Field.Event field) {
+        _eventEmitter.AddEvent(field);
+        return this;
+    }
+
     public GlycoComplex AddEvent<T>(string fid) {
         _eventEmitter.AddEvent<T>(new Field.Event { Id = fid });
+        return this;
+    }
+
+    public GlycoComplex AddEvent<T>(Field.Event field) {
+        _eventEmitter.AddEvent<T>(field);
         return this;
     }
 

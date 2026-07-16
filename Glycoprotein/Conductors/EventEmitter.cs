@@ -6,7 +6,7 @@ using Glycoprotein.Glycosylation;
 
 namespace Glycoprotein.Conductors;
 
-public class EventEmitter(IConnexon connexon, string gid) {
+public sealed class EventEmitter(IConnexon connexon, string gid) {
     readonly ConcurrentDictionary<string,(Field.Event Field,Type? ArgType)> _events = [];
 
     public IReadOnlyList<Field> Fields {

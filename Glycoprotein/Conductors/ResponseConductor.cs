@@ -6,17 +6,16 @@ using Glycoprotein.Glycosylation;
 
 namespace Glycoprotein.Conductors;
 
-public class ResponseConductor : IDisposable {
+public sealed class ResponseConductor : IDisposable {
     readonly IConnexon _connexon;
     readonly string _gid;
-    readonly ConcurrentDictionary<string,(Field.Action Meta,Action Act)> _actions = [];
-    readonly ConcurrentDictionary<string,(Field.Function Meta,Func<JsonElement?,JsonElement?> Func)> _functions = [];
+    readonly ConcurrentDictionary<string,(Field.Method Meta,Func<JsonElement?,JsonElement?> Func)> _responders = [];
+    bool _disposed;
     
     public IReadOnlyList<Field> Fields {
-        get => _actions.Select(Field (kvp) => kvp.Value.Meta)
-            .Concat(_functions
-                        .Select(Field (kvp) => kvp.Value.Meta))
-            .ToArray();
+        get => _responders
+                        .Select(kvp => kvp.Value.Meta)
+                        .ToArray();
     }
 
     public ResponseConductor(IConnexon connexon, string gid) {
@@ -25,19 +24,22 @@ public class ResponseConductor : IDisposable {
         _connexon.OnGlycosylReceived += OnReceived;
     }
 
-    public void AddAction(Field.Action meta, Action action) {
-        _actions[meta.Id] = (meta,action);
+    public void AddBareFunction(Field.Method meta, Func<JsonElement?,JsonElement?> fun) {
+        _responders[meta.Id] = (meta,fun);
     }
 
-    public void AddBareFunction(Field.Function meta, Func<JsonElement?,JsonElement?> fun) {
-        _functions[meta.Id] = (meta,fun);
+    public void AddAction(Field.Method meta, Action action) {
+        AddBareFunction(meta with {
+            QuerySchema = null,
+            ReceiptSchema = null
+        },_ => {
+            action();
+            return null;
+        });
     }
     
-    public void AddFunction<T1,T2>(Field.Function meta, Func<T1,T2> fun) {
-        AddBareFunction(new Field.Function {
-            Id = meta.Id,
-            FriendlyName = meta.FriendlyName,
-            Description = meta.Description,
+    public void AddFunction<T1,T2>(Field.Method meta, Func<T1,T2> fun) {
+        AddBareFunction(meta with {
             QuerySchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T1))),
             ReceiptSchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T2)))
         },je => {
@@ -47,24 +49,42 @@ public class ResponseConductor : IDisposable {
             return JsonSerializer.SerializeToElement(fun(param));
         });
     }
+
+    public void AddGet<T>(Field.Method meta, Func<T> query) {
+        AddBareFunction(meta with {
+            QuerySchema = null,
+            ReceiptSchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T)))
+        },_ => JsonSerializer.SerializeToElement(query()));
+    }
+
+    public void AddSet<T>(Field.Method meta, Action<T> reactor) {
+        AddBareFunction(meta with {
+            QuerySchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T))),
+            ReceiptSchema = null
+        },je => {
+            if (je == null) return null;
+            T? param = je.Value.Deserialize<T>();
+            if (param == null) return null;
+            reactor(param);
+            return null;
+        });
+    }
     
     void OnReceived(Glycosyl gly) {
+        if (_disposed) return;
         if (gly is not Glycosyl.Query query) return;
         if (query.Gid != _gid) return;
-        if (_functions.TryGetValue(query.Fid, out (Field.Function Meta,Func<JsonElement?,JsonElement?> Func) f)) {
+        if (_responders.TryGetValue(query.Fid, out (Field.Method Meta,Func<JsonElement?,JsonElement?> Func) f)) {
             _connexon.Send(new Glycosyl.Reply {
                 Payload = f.Func(query.Payload),
-                Qid = query.Qid 
-            });
-        } else if (_actions.TryGetValue(query.Fid,out (Field.Action Meta,Action Act) a)) {
-            a.Act();
-            _connexon.Send(new Glycosyl.Reply {
                 Qid = query.Qid 
             });
         }
     }
 
     public void Dispose() {
+        if (_disposed) return;
+        _disposed = true;
         _connexon.OnGlycosylReceived -= OnReceived;
     }
 }
