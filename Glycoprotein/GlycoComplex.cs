@@ -29,9 +29,9 @@ public sealed class GlycoComplex : IDisposable {
     public BeaconTracker Tracker { get; }
     public IReadOnlyList<Glycosyl.Beacon> Presenters { get => Tracker.ActivePresenters; }
 
-    public GlycoComplex(string id, IConnexon connexon) {
+    public GlycoComplex(string id, IConnexon? connexon = null) {
         Id = id;
-        Connexon = connexon;
+        Connexon = connexon ?? new UnixDomainMeshConnexon(Id);
         _responseConductor = new ResponseConductor(Connexon, id);
         _eventEmitter = new EventEmitter(Connexon, id);
         _beaconPresenter = new BeaconPresenter(Connexon);
@@ -65,34 +65,34 @@ public sealed class GlycoComplex : IDisposable {
         return this;
     }
 
-    public GlycoComplex On(string gid, string fid, Action handler) {
+    public GlycoComplex OnEvent(string gid, string fid, Action handler) {
         _eventReceiver.AddEvent(gid, fid, handler);
         return this;
     }
 
-    public GlycoComplex On<T>(string gid, string fid, Action<T> handler) {
+    public GlycoComplex OnEvent<T>(string gid, string fid, Action<T> handler) {
         _eventReceiver.AddEvent(gid, fid, handler);
         return this;
     }
 
-    public GlycoComplex OnRaw(string gid, string fid, Action<JsonElement?> handler) {
+    public GlycoComplex OnEventRaw(string gid, string fid, Action<JsonElement?> handler) {
         _eventReceiver.AddEvent(gid, fid, handler);
         return this;
     }
 
-    public Task DispatchAsync(string gid, string fid, CancellationToken ct = default)
+    public Task DoActionAsync(string gid, string fid, CancellationToken ct = default)
         => _queryConductor.DoActionAsync(gid, fid, ct);
 
-    public Task<JsonElement?> CallAsync(string gid, string fid, JsonElement? param = null, CancellationToken ct = default)
-        => _queryConductor.DoFunctionAsync(gid, fid, param, ct);
+    public Task<JsonElement?> CallFunctionAsync(string gid, string fid, JsonElement? param = null, CancellationToken ct = default)
+        => _queryConductor.CallFunctionAsync(gid, fid, param, ct);
 
-    public Task EmitAsync(string fid)
+    public Task EmitEventAsync(string fid)
         => _eventEmitter.EmitEventAsync(fid);
 
-    public Task EmitAsync<T>(string fid, T arg)
+    public Task EmitEventAsync<T>(string fid, T arg)
         => _eventEmitter.EmitEventAsync(fid, arg);
 
-    public Task EmitRawAsync(string fid, JsonElement? arg)
+    public Task EmitEventRawAsync(string fid, JsonElement? arg)
         => _eventEmitter.EmitBareEventAsync(fid, arg);
 
     public void Start() {
@@ -107,18 +107,29 @@ public sealed class GlycoComplex : IDisposable {
         Connexon.Start();
         Tracker.Start();
 
+        if (!BuildAndPublishBeacon()) return;
+        _ = _beaconPresenter.StartAsync(Connexon.CancellationToken);
+    }
+
+    public GlycoComplex RefreshBeacon() {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        BuildAndPublishBeacon();
+        return this;
+    }
+
+    bool BuildAndPublishBeacon() {
         List<Field> fields = [];
         fields.AddRange(_responseConductor.Fields);
         fields.AddRange(_eventEmitter.Fields);
 
-        if (fields.Count == 0) return;
+        if (fields.Count == 0) return false;
         Glycosyl.Beacon beacon = new Glycosyl.Beacon {
             Id = Id,
             Fields = fields
         };
         _beaconPresenter.Publish(beacon);
-        await Connexon.SendAsync(beacon, Connexon.CancellationToken);
-        _ = _beaconPresenter.StartAsync(Connexon.CancellationToken);
+        _ = Connexon.SendAsync(beacon, Connexon.CancellationToken);
+        return true;
     }
 
     public void Dispose() {

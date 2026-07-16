@@ -33,7 +33,7 @@ public sealed class QueryConductor : IDisposable {
         await SendQueryAndWaitAsync(gid, fid, null, ct);
     }
 
-    public async Task<JsonElement?> DoFunctionAsync(string gid, string fid, JsonElement? param = null, CancellationToken ct = default) {
+    public async Task<JsonElement?> CallFunctionAsync(string gid, string fid, JsonElement? param = null, CancellationToken ct = default) {
         ValidateField(gid, fid, typeof(Field.Function), param);
         return await SendQueryAndWaitAsync(gid, fid, param, ct);
     }
