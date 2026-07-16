@@ -60,7 +60,7 @@ public sealed class SceneContext : IDisposable {
         TimeSpan? timeout = null) {
         var listener = _nodes.First(n => n.Id == listenerId);
         var tcs = new TaskCompletionSource<T>();
-        listener.On<T>(sourceId, eventId, msg => tcs.TrySetResult(msg));
+        listener.OnEvent<T>(sourceId, eventId, msg => tcs.TrySetResult(msg));
         return await tcs.Task.WaitAsync(timeout ?? TimeSpan.FromSeconds(10));
     }
 
@@ -69,28 +69,28 @@ public sealed class SceneContext : IDisposable {
         JsonElement? param = null,
         CancellationToken ct = default) {
         var caller = _nodes.First(n => n.Id == callerId);
-        return await caller.CallAsync(targetId, fid, param, ct);
+        return await caller.CallFunctionAsync(targetId, fid, param, ct);
     }
 
     public async Task DispatchAsync(
         string callerId, string targetId, string fid,
         CancellationToken ct = default) {
         var caller = _nodes.First(n => n.Id == callerId);
-        await caller.DispatchAsync(targetId, fid, ct);
+        await caller.DoActionAsync(targetId, fid, ct);
     }
 
     public async Task EmitAsync<T>(
         string emitterId, string fid, T arg,
         CancellationToken ct = default) {
         var emitter = _nodes.First(n => n.Id == emitterId);
-        await emitter.EmitAsync(fid, arg);
+        await emitter.EmitEventAsync(fid, arg);
     }
 
     public async Task EmitAsync(
         string emitterId, string fid,
         CancellationToken ct = default) {
         var emitter = _nodes.First(n => n.Id == emitterId);
-        await emitter.EmitAsync(fid);
+        await emitter.EmitEventAsync(fid);
     }
 
     public void Assert(bool condition, string message) {
