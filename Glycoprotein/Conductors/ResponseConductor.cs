@@ -24,12 +24,12 @@ public sealed class ResponseConductor : IDisposable {
         _connexon.OnGlycosylReceived += OnReceived;
     }
 
-    public void AddBareFunction(Field.Method meta, Func<JsonElement?,JsonElement?> fun) {
+    public void AddRawFunction(Field.Method meta, Func<JsonElement?,JsonElement?> fun) {
         _responders[meta.Id] = (meta,fun);
     }
 
     public void AddAction(Field.Method meta, Action action) {
-        AddBareFunction(meta with {
+        AddRawFunction(meta with {
             QuerySchema = null,
             ReceiptSchema = null
         },_ => {
@@ -39,7 +39,7 @@ public sealed class ResponseConductor : IDisposable {
     }
     
     public void AddFunction<T1,T2>(Field.Method meta, Func<T1,T2> fun) {
-        AddBareFunction(meta with {
+        AddRawFunction(meta with {
             QuerySchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T1))),
             ReceiptSchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T2)))
         },je => {
@@ -51,14 +51,14 @@ public sealed class ResponseConductor : IDisposable {
     }
 
     public void AddGet<T>(Field.Method meta, Func<T> query) {
-        AddBareFunction(meta with {
+        AddRawFunction(meta with {
             QuerySchema = null,
             ReceiptSchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T)))
         },_ => JsonSerializer.SerializeToElement(query()));
     }
 
     public void AddSet<T>(Field.Method meta, Action<T> reactor) {
-        AddBareFunction(meta with {
+        AddRawFunction(meta with {
             QuerySchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T))),
             ReceiptSchema = null
         },je => {

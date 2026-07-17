@@ -100,7 +100,7 @@ public sealed class HubFailover : ScenarioBase {
         await ctx.RunStepAsync("Call to dead hub A must fail", async () => {
             var hCNode = hC;
             try {
-                await hCNode.CallFunctionAsync("hub_a", "add",
+                await hCNode.CallFunctionRawAsync("hub_a", "add",
                     JsonSerializer.SerializeToElement(new AddRequest(1, 1)),
                     new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
                 ctx.Fail("Call to dead node should have thrown");

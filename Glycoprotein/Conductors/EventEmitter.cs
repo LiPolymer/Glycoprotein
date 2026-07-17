@@ -25,7 +25,7 @@ public sealed class EventEmitter(IConnexon connexon, string gid) {
         },typeof(T));
     }
     
-    public async Task EmitBareEventAsync(string fid, JsonElement? args = null) {
+    public async Task EmitEventRawAsync(string fid, JsonElement? args = null) {
         await connexon.SendAsync(new Glycosyl.Event {
             Gid = gid,
             Fid = fid,

@@ -69,7 +69,7 @@ public sealed class SceneContext : IDisposable {
         JsonElement? param = null,
         CancellationToken ct = default) {
         var caller = _nodes.First(n => n.Id == callerId);
-        return await caller.CallFunctionAsync(targetId, fid, param, ct);
+        return await caller.CallFunctionRawAsync(targetId, fid, param, ct);
     }
 
     public async Task DispatchAsync(

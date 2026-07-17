@@ -61,12 +61,12 @@ public sealed class GlycoComplex : IDisposable {
     }
 
     public GlycoComplex AddFunction(string fid, Func<JsonElement?, JsonElement?> func) {
-        _responseConductor.AddBareFunction(new Field.Method { Id = fid }, func);
+        _responseConductor.AddRawFunction(new Field.Method { Id = fid }, func);
         return this;
     }
 
     public GlycoComplex AddFunction(Field.Method field, Func<JsonElement?, JsonElement?> func) {
-        _responseConductor.AddBareFunction(field, func);
+        _responseConductor.AddRawFunction(field, func);
         return this;
     }
 
@@ -128,9 +128,11 @@ public sealed class GlycoComplex : IDisposable {
     public Task DoActionAsync(string gid, string fid, CancellationToken ct = default)
         => _queryConductor.DoActionAsync(gid, fid, ct);
 
-    public Task<JsonElement?> CallFunctionAsync(string gid, string fid, JsonElement? param = null, CancellationToken ct = default)
-        => _queryConductor.CallFunctionAsync(gid, fid, param, ct);
+    public Task<JsonElement?> CallFunctionRawAsync(string gid, string fid, JsonElement? param = null, CancellationToken ct = default)
+        => _queryConductor.CallFunctionRawAsync(gid, fid, param, ct);
 
+    
+    
     public Task EmitEventAsync(string fid)
         => _eventEmitter.EmitEventAsync(fid);
 
@@ -138,7 +140,7 @@ public sealed class GlycoComplex : IDisposable {
         => _eventEmitter.EmitEventAsync(fid, arg);
 
     public Task EmitEventRawAsync(string fid, JsonElement? arg)
-        => _eventEmitter.EmitBareEventAsync(fid, arg);
+        => _eventEmitter.EmitEventRawAsync(fid, arg);
 
     public void Start() {
         _ = StartAsync();
