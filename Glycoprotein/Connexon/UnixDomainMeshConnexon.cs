@@ -44,6 +44,17 @@ public sealed class UnixDomainMeshConnexon : IConnexon {
         _cts = new CancellationTokenSource();
         Directory.CreateDirectory(_socketDir);
 
+        if (File.Exists(_mySocketPath)) {
+            using Socket probe = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            try {
+                probe.Connect(new UnixDomainSocketEndPoint(_mySocketPath));
+                throw new InvalidOperationException($"Node '{_nodeId}' is already running. Socket path: {_mySocketPath}");
+            }
+            catch (SocketException) {
+                File.Delete(_mySocketPath);
+            }
+        }
+
         _listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         _listener.Bind(new UnixDomainSocketEndPoint(_mySocketPath));
         _listener.Listen(128);
