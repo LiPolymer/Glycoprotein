@@ -37,3 +37,5 @@ flowchart TB
     BP -.->|"读取已注册字段"| EE
 ```
 具体用法参见 `Glycoprotein.Demo`
+
+本项目基于 [`LGPLv3`](https://www.gnu.org/licenses/lgpl-3.0.zh-cn.html) 获得许可
