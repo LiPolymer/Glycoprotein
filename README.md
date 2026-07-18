@@ -5,31 +5,36 @@
 ## 架构
 
 ```mermaid
-flowchart LR
-    Incoming(传入的请求) --> RC
-    QC --> Outgoing(发出的请求)
-    EE --> Publish(发布事件)
-    Subscribe(订阅事件) --> ER
-    BP --> Broadcast(广播信标)
-    Discovery(发现与过期) --> BT
-
-    subgraph GlycoComplex [GlycoComplex - Node 节点]
-        RC[ResponseConductor<br/>Actions + Functions]
-        QC[QueryConductor<br/>RPC Client]
-        EE[EventEmitter]
-        ER[EventReceiver]
-        BP[BeaconPresenter]
-        BT[BeaconTracker]
-    end
-
-    subgraph Transports [传输层实现 - Transports]
+flowchart TB
+    subgraph GlycoComplex["GlycoComplex 节点"]
         direction TB
-        T1[UnixDomainMeshConnexon]
-        T2[UnixDomainMasteredConnexon]
-        T3[Custom - 实现 IConnexon]
+        RC[ResponseConductor<br/>接收 Query → 执行 Action/Function → 返回 Reply]
+        QC[QueryConductor<br/>发送 Query → 等待 Reply]
+        EE[EventEmitter<br/>发布 Event]
+        ER[EventReceiver<br/>接收 Event → 匹配订阅]
+        BP[BeaconPresenter<br/>周期性广播 Beacon]
+        BT[BeaconTracker<br/>接收 Beacon → 发现/过期]
     end
 
-    GlycoComplex <--> |IConnexon 接口| Transports
+    subgraph Transport["传输层 (IConnexon 接口)"]
+        direction LR
+        T1[UnixDomainMeshConnexon<br/>全网状拓扑]
+        T2[UnixDomainMasteredConnexon<br/>中心辐射 + 故障转移]
+        T3[自定义实现<br/>TCP / WebSocket / ...]
+    end
+
+    BP -- "Beacon ▶" --> Transport
+    Transport -- "◀ Beacon" --> BT
+    QC -- "Query ▶" --> Transport
+    Transport -- "◀ Query" --> RC
+    RC -- "Reply ▶" --> Transport
+    Transport -- "◀ Reply" --> QC
+    EE -- "Event ▶" --> Transport
+    Transport -- "◀ Event" --> ER
+
+    QC -.->|"查询活跃节点"| BT
+    BP -.->|"读取已注册字段"| RC
+    BP -.->|"读取已注册字段"| EE
 ```
 
 ## 快速开始
@@ -58,18 +63,18 @@ alpha.OnDiscovered += beacon => Console.WriteLine($"[alpha] 已发现: {beacon.I
 var beta = new GlycoComplex("beta", new UnixDomainMeshConnexon("beta", dir));
 
 // 启动两个节点, 让它们相互发现
-alpha.Start();
-beta.Start();
+await alpha.StartAsync();
+await beta.StartAsync();
 
 await Task.Delay(2000); // 等待发现信标的广播
 
 // Beta 调用 Alpha 的 math_add
-var result = await beta.CallAsync("alpha", "math_add",
-    JsonSerializer.SerializeToElement(new AddRequest(10, 25)));
-Console.WriteLine($"10 + 25 = {result?.GetProperty("Result").GetInt32()}");
+var result = await beta.CallFunctionAsync<AddRequest, AddResponse>("alpha", "math_add",
+    new AddRequest(10, 25));
+Console.WriteLine($"10 + 25 = {result?.Result}");
 
 // Beta 在 Alpha 上分发一个动作
-await beta.DispatchAsync("alpha", "do_status");
+await beta.DoActionAsync("alpha", "do_status");
 
 // 清理
 alpha.Dispose();
@@ -91,11 +96,11 @@ record HeartbeatMessage(string NodeId, DateTime Time);
 alpha.AddEvent<HeartbeatMessage>("evt_heartbeat");
 
 // 节点 B 订阅节点 A 的心跳
-beta.On<HeartbeatMessage>("alpha", "evt_heartbeat",
+beta.OnEvent<HeartbeatMessage>("alpha", "evt_heartbeat",
     msg => Console.WriteLine($"[Beta] 收到心跳: 来自 {msg.NodeId}, 时间 {msg.Time}"));
 
 // 节点 A 触发事件
-await alpha.EmitAsync("evt_heartbeat",
+await alpha.EmitEventAsync("evt_heartbeat",
     new HeartbeatMessage("alpha", DateTime.UtcNow));
 ```
 
@@ -150,16 +155,16 @@ public interface IConnexon : IDisposable
 |---|---|
 | `AddAction(fid, action)` | 注册一个即发即弃(fire-and-forget)动作 |
 | `AddFunction<TReq, TRes>(fid, func)` | 注册一个强类型 RPC 函数 |
-| `AddFunction(fid, func)` | 注册一个原生(JsonElement)RPC 函数 |
+| `AddRawFunction(fid, func)` | 注册一个原生(JsonElement)RPC 函数 |
 | `AddEvent(fid)` / `AddEvent<T>(fid)` | 声明一个需发布的事件 |
-| `On(gid, fid, handler)` | 订阅一个事件(无类型) |
-| `On<T>(gid, fid, handler)` | 订阅一个强类型事件 |
-| `OnRaw(gid, fid, handler)` | 订阅一个原生 JsonElement 事件 |
-| `CallAsync(gid, fid)` | 调用远程函数并获取结果 |
-| `DispatchAsync(gid, fid)` | 即发即弃地调用一个远程动作 |
-| `EmitAsync(fid)` / `EmitAsync<T>(fid, arg)` | 发布一个事件 |
-| `EmitRawAsync(fid, arg)` | 发布一个原生事件 |
-| `Start()` / `StartAsync()` | 开始广播信标并处理消息 |
+| `OnEvent(gid, fid, handler)` | 订阅一个事件(无类型) |
+| `OnEvent<T>(gid, fid, handler)` | 订阅一个强类型事件 |
+| `OnEventRaw(gid, fid, handler)` | 订阅一个原生 JsonElement 事件 |
+| `CallFunctionAsync<TRes>(gid, fid)` | 调用远程函数并获取结果 |
+| `DoActionAsync(gid, fid)` | 即发即弃地调用一个远程动作 |
+| `EmitEventAsync(fid)` / `EmitEventAsync<T>(fid, arg)` | 发布一个事件 |
+| `EmitEventRawAsync(fid, arg)` | 发布一个原生事件 |
+| `StartAsync()` | 开始广播信标并处理消息 |
 | `Dispose()` | 停止节点并释放所有资源 |
 
 ## 消息(传输格式)
