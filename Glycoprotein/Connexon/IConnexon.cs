@@ -8,8 +8,8 @@ public interface IConnexon : IDisposable {
 
     void Start();
     void Stop();
-    Task SendAsync(Glycosyl glycosyl, CancellationToken ct = default);
-    Task SendBytesAsync(byte[] data, CancellationToken ct = default);
+    Task SendAsync(Glycosyl glycosyl,CancellationToken ct = default);
+    Task SendBytesAsync(byte[] data,CancellationToken ct = default);
     void SendBytes(byte[] data);
     void Send(Glycosyl glycosyl);
 }

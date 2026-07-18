@@ -4,24 +4,23 @@ using Glycoprotein.Connexon;
 
 namespace Glycoprotein.Glycosylation;
 
-public sealed class BeaconTracker(IConnexon connexon, TimeSpan? expiry = null, TimeSpan? cleanupInterval = null) : IDisposable {
+public sealed class BeaconTracker(IConnexon connexon,TimeSpan? expiry = null,TimeSpan? cleanupInterval = null) : IDisposable {
     public event Action<Glycosyl.Beacon>? OnDiscovered;
+
     public event Action<Glycosyl.Beacon>? OnExpired;
 
     readonly TimeSpan _expiry = expiry ?? TimeSpan.FromSeconds(3);
     readonly TimeSpan _cleanupInterval = cleanupInterval ?? TimeSpan.FromSeconds(1);
 
-    readonly ConcurrentDictionary<string, (Glycosyl.Beacon Glyco, DateTime LastSeen)> _presenters = [];
+    readonly ConcurrentDictionary<string,(Glycosyl.Beacon Glyco,DateTime LastSeen)> _presenters = [];
 
     Task? _cleanupTask;
     bool _disposed;
 
-    public IReadOnlyList<Glycosyl.Beacon> ActivePresenters {
-        get => _presenters.Values.Select(v => v.Glyco).ToArray();
-    }
+    public IReadOnlyList<Glycosyl.Beacon> ActivePresenters { get => _presenters.Values.Select(v => v.Glyco).ToArray(); }
 
     public void Start() {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(_disposed,this);
         connexon.OnGlycosylReceived += OnReceived;
         _cleanupTask = CleanupLoopAsync(connexon.CancellationToken);
     }
@@ -39,22 +38,20 @@ public sealed class BeaconTracker(IConnexon connexon, TimeSpan? expiry = null, T
             bool isNew = false;
 
             _presenters.AddOrUpdate(
-                beacon.Id,
-                addValueFactory: _ => {
-                    isNew = true;
-                    return (beacon, now);
-                },
-                updateValueFactory: (_, _) => (beacon, now)
-            );
+                                    beacon.Id,
+                                    addValueFactory: _ => {
+                                        isNew = true;
+                                        return (beacon,now);
+                                    },
+                                    updateValueFactory: (_,_) => (beacon,now)
+                                   );
 
             if (isNew) {
-                SafeInvoke(OnDiscovered, beacon);
+                SafeInvoke(OnDiscovered,beacon);
             }
-        }
-        catch (JsonException ex) {
+        } catch (JsonException ex) {
             Console.WriteLine($"JSON 解析失败: {ex.Message}");
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Console.WriteLine($"接收异常: {ex.Message}");
         }
     }
@@ -66,23 +63,21 @@ public sealed class BeaconTracker(IConnexon connexon, TimeSpan? expiry = null, T
             while (await timer.WaitForNextTickAsync(ct)) {
                 DateTime cutoff = DateTime.UtcNow - _expiry;
 
-                foreach (KeyValuePair<string, (Glycosyl.Beacon Glyco, DateTime LastSeen)> kvp in _presenters) {
+                foreach (KeyValuePair<string,(Glycosyl.Beacon Glyco,DateTime LastSeen)> kvp in _presenters) {
                     if (kvp.Value.LastSeen >= cutoff) continue;
 
-                    if (_presenters.TryRemove(kvp.Key, out (Glycosyl.Beacon Glyco, DateTime LastSeen) removed)) {
-                        SafeInvoke(OnExpired, removed.Glyco);
+                    if (_presenters.TryRemove(kvp.Key,out (Glycosyl.Beacon Glyco,DateTime LastSeen) removed)) {
+                        SafeInvoke(OnExpired,removed.Glyco);
                     }
                 }
             }
-        }
-        catch (OperationCanceledException) { }
+        } catch (OperationCanceledException) { }
     }
 
-    void SafeInvoke(Action<Glycosyl.Beacon>? action, Glycosyl.Beacon glycosyl) {
+    void SafeInvoke(Action<Glycosyl.Beacon>? action,Glycosyl.Beacon glycosyl) {
         try {
             action?.Invoke(glycosyl);
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             Console.WriteLine($"事件处理程序内部抛出异常: {ex.Message}");
         }
     }

@@ -1,5 +1,3 @@
-using Glycoprotein.Debug.Model;
-
 namespace Glycoprotein.Debug.Framework;
 
 public abstract class ScenarioBase {

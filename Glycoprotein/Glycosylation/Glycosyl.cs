@@ -6,35 +6,44 @@ using System.Text.Json.Serialization.Metadata;
 namespace Glycoprotein.Glycosylation;
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "Type")]
-[JsonDerivedType(typeof(Glycosyl.Beacon), "Beacon")]
-[JsonDerivedType(typeof(Glycosyl.Query), "Query")]
-[JsonDerivedType(typeof(Glycosyl.Reply), "Reply")]
-[JsonDerivedType(typeof(Glycosyl.Event), "Event")]
+[JsonDerivedType(typeof(Glycosyl.Beacon),"Beacon")]
+[JsonDerivedType(typeof(Glycosyl.Query),"Query")]
+[JsonDerivedType(typeof(Glycosyl.Reply),"Reply")]
+[JsonDerivedType(typeof(Glycosyl.Event),"Event")]
 public abstract class Glycosyl {
     public static readonly JsonSerializerOptions Jso = new JsonSerializerOptions {
         TypeInfoResolver = new DefaultJsonTypeInfoResolver()
     };
+
     public sealed class Beacon : Glycosyl {
         public required string Id { get; init; }
+
         public required List<Field> Fields { get; init; }
+
         public DateTime Timestamp { get; } = DateTime.UtcNow;
     }
 
     public sealed class Query : Glycosyl {
         public required string Gid { get; init; }
+
         public required string Fid { get; init; }
+
         public JsonElement? Payload { get; init; }
+
         public Guid Qid { get; init; } = Guid.NewGuid();
     }
 
     public sealed class Reply : Glycosyl {
         public JsonElement? Payload { get; init; }
+
         public required Guid Qid { get; init; }
     }
-    
+
     public sealed class Event : Glycosyl {
         public required string Gid { get; init; }
+
         public required string Fid { get; init; }
+
         public JsonElement? Arg { get; set; }
     }
 
