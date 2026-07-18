@@ -128,6 +128,9 @@ public sealed class GlycoComplex : IDisposable {
     public Task DoActionAsync(string gid, string fid, CancellationToken ct = default)
         => _queryConductor.DoActionAsync(gid, fid, ct);
 
+    public Task DoActionAsync<T>(string gid, string fid, T param, CancellationToken ct = default)
+        => _queryConductor.DoActionAsync(gid, fid, param, ct);
+    
     public Task<JsonElement?> CallFunctionRawAsync(string gid, string fid, JsonElement? param = null, CancellationToken ct = default)
         => _queryConductor.CallFunctionRawAsync(gid, fid, param, ct);
 

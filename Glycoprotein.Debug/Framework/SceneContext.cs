@@ -83,14 +83,14 @@ public sealed class SceneContext : IDisposable {
         string emitterId, string fid, T arg,
         CancellationToken ct = default) {
         var emitter = _nodes.First(n => n.Id == emitterId);
-        await emitter.EmitEventAsync(fid, arg);
+        await emitter.EmitEventAsync(fid, arg, ct);
     }
 
     public async Task EmitAsync(
         string emitterId, string fid,
         CancellationToken ct = default) {
         var emitter = _nodes.First(n => n.Id == emitterId);
-        await emitter.EmitEventAsync(fid);
+        await emitter.EmitEventAsync(fid, ct);
     }
 
     public void Assert(bool condition, string message) {

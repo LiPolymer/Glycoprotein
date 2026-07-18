@@ -44,7 +44,8 @@ public sealed class EventEmitter(IConnexon connexon, string gid) {
     }
 
     public async Task EmitEventAsync<T>(string fid,T arg, CancellationToken ct = default) {
-        if (!_events.TryGetValue(fid,out (Field.Event Field,Type? ArgType) em) || em.ArgType != typeof(T)) return;
+        if (!_events.TryGetValue(fid,out (Field.Event Field,Type? ArgType) em) || em.ArgType != typeof(T))
+            throw new InvalidOperationException($"Event '{fid}' is not registered or type mismatch.");
         await connexon.SendAsync(new Glycosyl.Event {
             Gid = gid,
             Fid = fid,
