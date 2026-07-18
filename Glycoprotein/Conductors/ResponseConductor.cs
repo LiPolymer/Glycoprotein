@@ -50,14 +50,14 @@ public sealed class ResponseConductor : IDisposable {
         });
     }
 
-    public void AddGet<T>(Field.Method meta, Func<T> query) {
+    public void AddFunction<T>(Field.Method meta, Func<T> query) {
         AddRawFunction(meta with {
             QuerySchema = null,
             ReceiptSchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T)))
         },_ => JsonSerializer.SerializeToElement(query()));
     }
 
-    public void AddSet<T>(Field.Method meta, Action<T> reactor) {
+    public void AddAction<T>(Field.Method meta, Action<T> reactor) {
         AddRawFunction(meta with {
             QuerySchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T))),
             ReceiptSchema = null

@@ -60,33 +60,33 @@ public sealed class GlycoComplex : IDisposable {
         return this;
     }
 
-    public GlycoComplex AddFunction(string fid, Func<JsonElement?, JsonElement?> func) {
+    public GlycoComplex AddRawFunction(string fid, Func<JsonElement?, JsonElement?> func) {
         _responseConductor.AddRawFunction(new Field.Method { Id = fid }, func);
         return this;
     }
 
-    public GlycoComplex AddFunction(Field.Method field, Func<JsonElement?, JsonElement?> func) {
+    public GlycoComplex AddRawFunction(Field.Method field, Func<JsonElement?, JsonElement?> func) {
         _responseConductor.AddRawFunction(field, func);
         return this;
     }
 
-    public GlycoComplex AddGet<T>(string fid, Func<T> query) {
-        _responseConductor.AddGet(new Field.Method { Id = fid }, query);
+    public GlycoComplex AddFunction<T>(string fid, Func<T> query) {
+        _responseConductor.AddFunction(new Field.Method { Id = fid }, query);
         return this;
     }
 
-    public GlycoComplex AddGet<T>(Field.Method field, Func<T> query) {
-        _responseConductor.AddGet(field, query);
+    public GlycoComplex AddFunction<T>(Field.Method field, Func<T> query) {
+        _responseConductor.AddFunction(field, query);
         return this;
     }
 
-    public GlycoComplex AddSet<T>(string fid, Action<T> reactor) {
-        _responseConductor.AddSet(new Field.Method { Id = fid }, reactor);
+    public GlycoComplex AddAction<T>(string fid, Action<T> reactor) {
+        _responseConductor.AddAction(new Field.Method { Id = fid }, reactor);
         return this;
     }
 
-    public GlycoComplex AddSet<T>(Field.Method field, Action<T> reactor) {
-        _responseConductor.AddSet(field, reactor);
+    public GlycoComplex AddAction<T>(Field.Method field, Action<T> reactor) {
+        _responseConductor.AddAction(field, reactor);
         return this;
     }
 
@@ -131,20 +131,20 @@ public sealed class GlycoComplex : IDisposable {
     public Task<JsonElement?> CallFunctionRawAsync(string gid, string fid, JsonElement? param = null, CancellationToken ct = default)
         => _queryConductor.CallFunctionRawAsync(gid, fid, param, ct);
 
+    public Task<TRes?> CallFunctionAsync<TReq,TRes>(string gid, string fid, TReq param, CancellationToken ct = default)
+        => _queryConductor.CallFunctionAsync<TReq,TRes>(gid, fid, param, ct);
     
+    public Task<T?> CallFunctionAsync<T>(string gid, string fid, CancellationToken ct = default)
+        => _queryConductor.CallFunctionAsync<T>(gid, fid, ct);
     
-    public Task EmitEventAsync(string fid)
-        => _eventEmitter.EmitEventAsync(fid);
+    public Task EmitEventAsync(string fid, CancellationToken ct = default)
+        => _eventEmitter.EmitEventAsync(fid, ct);
 
-    public Task EmitEventAsync<T>(string fid, T arg)
-        => _eventEmitter.EmitEventAsync(fid, arg);
+    public Task EmitEventAsync<T>(string fid, T arg, CancellationToken ct = default)
+        => _eventEmitter.EmitEventAsync(fid, arg,ct);
 
-    public Task EmitEventRawAsync(string fid, JsonElement? arg)
-        => _eventEmitter.EmitEventRawAsync(fid, arg);
-
-    public void Start() {
-        _ = StartAsync();
-    }
+    public Task EmitEventRawAsync(string fid, JsonElement? arg, CancellationToken ct = default)
+        => _eventEmitter.EmitEventRawAsync(fid, arg,ct);
 
     public async Task StartAsync(CancellationToken ct = default) {
         ObjectDisposedException.ThrowIf(_disposed, this);

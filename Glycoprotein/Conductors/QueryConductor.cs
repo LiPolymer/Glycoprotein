@@ -38,9 +38,14 @@ public sealed class QueryConductor : IDisposable {
         return await SendQueryAndWaitAsync(gid, fid, param, ct);
     }
 
-    public async Task<TRes?> CallFunctionAsync<TReq,TRes>(string gid, string fid, TReq? param = default, CancellationToken ct = default) {
+    public async Task<TRes?> CallFunctionAsync<TReq,TRes>(string gid, string fid, TReq param, CancellationToken ct = default) {
         JsonElement? rp = await CallFunctionRawAsync(gid,fid,JsonSerializer.SerializeToElement(param),ct);
         return rp == null ? default : rp.Value.Deserialize<TRes>();
+    }
+
+    public async Task<T?> CallFunctionAsync<T>(string gid,string fid,CancellationToken ct = default) {
+        JsonElement? rp = await CallFunctionRawAsync(gid,fid,null,ct);
+        return rp == null ? default : rp.Value.Deserialize<T>();
     }
 
     void ValidateField(string gid, string fid, JsonElement? param = null) {
