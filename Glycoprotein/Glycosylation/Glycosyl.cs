@@ -2,6 +2,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using Json.Schema;
+using Json.Schema.Generation;
 
 namespace Glycoprotein.Glycosylation;
 
@@ -45,6 +47,19 @@ public abstract class Glycosyl {
         public required string Fid { get; init; }
 
         public JsonElement? Arg { get; set; }
+    }
+
+    public static JsonElement GenerateSchema<T>() {
+        JsonSchema schema = new JsonSchemaBuilder().FromType<T>().Build();
+        string json = JsonSerializer.Serialize(schema);
+        using JsonDocument doc = JsonDocument.Parse(json);
+        return doc.RootElement.Clone();
+    }
+
+    public static JsonElement SerializeToJsonElement<T>(T? value) {
+        string json = JsonSerializer.Serialize(value, Jso);
+        using JsonDocument doc = JsonDocument.Parse(json);
+        return doc.RootElement.Clone();
     }
 
     public byte[] ToBytes() {

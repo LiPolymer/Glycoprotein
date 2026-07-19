@@ -28,7 +28,7 @@ public sealed class UnixDomainMasteredConnexon : IConnexon {
     // Hub-only state
     Socket? _listener;
     readonly List<NetworkStream> _clients = [];
-    readonly Lock _clientsLock = new Lock();
+    readonly object _clientsLock = new();
     bool _isHub;
 
     // Reconnection

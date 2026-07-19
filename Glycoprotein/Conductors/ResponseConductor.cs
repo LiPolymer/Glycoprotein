@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
-using System.Text.Json.Schema;
+
 using Glycoprotein.Connexon;
 using Glycoprotein.Glycosylation;
 
@@ -40,26 +40,26 @@ public sealed class ResponseConductor : IDisposable {
 
     public void AddFunction<T1,T2>(Field.Method meta,Func<T1,T2> fun) {
         AddRawFunction(meta with {
-            QuerySchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T1))),
-            ReceiptSchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T2)))
+            QuerySchema = Glycosyl.GenerateSchema<T1>(),
+            ReceiptSchema = Glycosyl.GenerateSchema<T2>()
         },je => {
             if (je == null) return null;
             T1? param = je.Value.Deserialize<T1>();
             if (param == null) return null;
-            return JsonSerializer.SerializeToElement(fun(param));
+            return Glycosyl.SerializeToJsonElement(fun(param));
         });
     }
 
     public void AddFunction<T>(Field.Method meta,Func<T> query) {
         AddRawFunction(meta with {
             QuerySchema = null,
-            ReceiptSchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T)))
-        },_ => JsonSerializer.SerializeToElement(query()));
+            ReceiptSchema = Glycosyl.GenerateSchema<T>()
+        },_ => Glycosyl.SerializeToJsonElement(query()));
     }
 
     public void AddAction<T>(Field.Method meta,Action<T> reactor) {
         AddRawFunction(meta with {
-            QuerySchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T))),
+            QuerySchema = Glycosyl.GenerateSchema<T>(),
             ReceiptSchema = null
         },je => {
             if (je == null) return null;

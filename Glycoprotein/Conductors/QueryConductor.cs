@@ -35,7 +35,7 @@ public sealed class QueryConductor : IDisposable {
     }
 
     public async Task DoActionAsync<T>(string gid,string fid,T arg,CancellationToken ct = default) {
-        JsonElement? param = JsonSerializer.SerializeToElement(arg);
+        JsonElement? param = Glycosyl.SerializeToJsonElement(arg);
         await CallFunctionRawAsync(gid,fid,param,ct);
     }
 
@@ -45,7 +45,7 @@ public sealed class QueryConductor : IDisposable {
     }
 
     public async Task<TRes?> CallFunctionAsync<TReq,TRes>(string gid,string fid,TReq param,CancellationToken ct = default) {
-        JsonElement? rp = await CallFunctionRawAsync(gid,fid,JsonSerializer.SerializeToElement(param),ct);
+        JsonElement? rp = await CallFunctionRawAsync(gid,fid,Glycosyl.SerializeToJsonElement(param),ct);
         return rp == null ? default : rp.Value.Deserialize<TRes>();
     }
 

@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
-using System.Text.Json.Schema;
+
 using Glycoprotein.Connexon;
 using Glycoprotein.Glycosylation;
 
@@ -18,8 +18,7 @@ public sealed class EventEmitter(IConnexon connexon,string gid) {
 
     public void AddEvent<T>(Field.Event field) {
         _events[field.Id] = (field with {
-            CallArgSchema = JsonSerializer
-                .SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T)))
+            CallArgSchema = Glycosyl.GenerateSchema<T>()
         },typeof(T));
     }
 
@@ -47,7 +46,7 @@ public sealed class EventEmitter(IConnexon connexon,string gid) {
         await connexon.SendAsync(new Glycosyl.Event {
             Gid = gid,
             Fid = fid,
-            Arg = JsonSerializer.SerializeToElement(arg)
+            Arg = Glycosyl.SerializeToJsonElement(arg)
         },ct);
     }
 }
