@@ -5,7 +5,7 @@ using Glycoprotein.Glycosylation;
 
 namespace Glycoprotein;
 
-public sealed class GlycoComplex : IDisposable {
+public class GlycoComplex : IDisposable {
     readonly ResponseConductor _responseConductor;
     readonly EventEmitter _eventEmitter;
     readonly BeaconTracker _tracker;

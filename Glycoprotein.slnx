@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="Glycoprotein.Demo/Glycoprotein.Demo.csproj" />
+  <Project Path="Glycoprotein.HostedService/Glycoprotein.HostedService.csproj" />
   <Project Path="Glycoprotein/Glycoprotein.csproj" />
   <Project Path="Glycoprotein.Debug/Glycoprotein.Debug.csproj" />
 </Solution>
