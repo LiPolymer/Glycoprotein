@@ -1,4 +1,4 @@
-namespace Glycoprotein.Debug.Model;
+﻿namespace Glycoprotein.Tests;
 
 record AddRequest(int A, int B);
 record AddResponse(int Result);
