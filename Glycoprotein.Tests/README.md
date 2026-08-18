@@ -25,6 +25,14 @@ dotnet test Glycoprotein.Tests/Glycoprotein.Tests.csproj --logger "console;verbo
 > 默认控制台 logger 对**通过的**测试不显示输出（防刷屏）；测试**失败**时其日志会自动附在错误信息里，无需参数。
 > 在 Rider / VS 的 Test Explorer 中选中测试，Output 面板即可看到日志，同样无需参数。
 
+生成 JUnit XML 报告（CI 中由 GitLab 的 `reports: junit:` 原生渲染）：
+
+```bash
+dotnet test Glycoprotein.Tests/Glycoprotein.Tests.csproj --logger "junit;LogFileName=results.xml"
+```
+
+> 需要测试项目引用 `JUnitTestLogger` 包（已在 `Glycoprotein.Tests.csproj` 中）；产物默认在 `TestResults/results.xml`。
+
 ## 场景
 
 | 测试类 | 覆盖内容 |
