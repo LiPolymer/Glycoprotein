@@ -11,7 +11,7 @@ namespace Glycoprotein.Connexon;
 /// <br/> stability could be a problem.<br/>
 /// <i>(btw I have already audited it lol)</i>
 /// </remarks>
-public sealed class UnixDomainMasteredConnexon : IConnexon {
+sealed class UnixDomainMasteredConnexon : IConnexon {
     public static string DefaultSocketDirectory { get => Path.Combine(Path.GetTempPath(),"glycoprotein_mastered"); }
 
     public event Action<Glycosyl>? OnGlycosylReceived;

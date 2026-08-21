@@ -8,7 +8,7 @@ namespace Glycoprotein.Connexon;
 /// Connexon based on UDP Multicast.
 /// </summary>
 [Obsolete("This implementation could lead to data loss due to the limitation of UDP protocol.")]
-public sealed class MulticastConnexon(IPEndPoint endPoint) : IConnexon {
+sealed class MulticastConnexon(IPEndPoint endPoint) : IConnexon {
     public const int MaxPayloadSize = 65507;
     public const int SafePayloadSize = 1400;
 
