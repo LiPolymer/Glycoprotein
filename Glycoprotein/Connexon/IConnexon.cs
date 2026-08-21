@@ -9,7 +9,7 @@ public interface IConnexon : IDisposable {
     void Start();
     void Stop();
     Task SendAsync(Glycosyl glycosyl,CancellationToken ct = default);
-    Task SendBytesAsync(byte[] data,CancellationToken ct = default);
-    void SendBytes(byte[] data);
+    Task SendBytesAsync(byte[] data,string? receiver = null,CancellationToken ct = default);
+    void SendBytes(byte[] data,string? receiver = null);
     void Send(Glycosyl glycosyl);
 }

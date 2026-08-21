@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using Glycoprotein.Glycosylation;
 
 namespace Glycoprotein.Connexon;
@@ -78,54 +79,107 @@ public sealed class UnixDomainMeshConnexon : IConnexon {
 
     public async Task SendAsync(Glycosyl glycosyl,CancellationToken ct = default) {
         ObjectDisposedException.ThrowIf(_disposed,this);
-        await SendBytesAsync(glycosyl.ToBytes(),ct);
+        byte[] data = glycosyl.ToBytes();
+        await SendBytesAsync(data,ParseReceiver(glycosyl),ct);
     }
 
-    public async Task SendBytesAsync(byte[] data,CancellationToken ct = default) {
+    public async Task SendBytesAsync(byte[] data,string? receiver = null,CancellationToken ct = default) {
         ObjectDisposedException.ThrowIf(_disposed,this);
         byte[] framed = FrameMessage(data);
 
-        OnGlycosylReceived?.Invoke(Glycosyl.FromBytes(data));
+        if (receiver == null) {
+            OnGlycosylReceived?.Invoke(Glycosyl.FromBytes(data));
 
-        foreach (KeyValuePair<string,NetworkStream> kvp in _peers) {
-            try {
-                await kvp.Value.WriteAsync(framed,ct);
-                await kvp.Value.FlushAsync(ct);
-            } catch {
-                _peers.TryRemove(kvp.Key,out _);
+            foreach (KeyValuePair<string,NetworkStream> kvp in _peers) {
                 try {
-                    await kvp.Value.DisposeAsync();
+                    await kvp.Value.WriteAsync(framed,ct);
+                    await kvp.Value.FlushAsync(ct);
                 } catch {
-                    // ignored
+                    _peers.TryRemove(kvp.Key,out _);
+                    try {
+                        await kvp.Value.DisposeAsync();
+                    } catch {
+                        // ignored
+                    }
                 }
+            }
+            return;
+        }
+
+        if (receiver == _nodeId) {
+            OnGlycosylReceived?.Invoke(Glycosyl.FromBytes(data));
+            return;
+        }
+
+        if (!_peers.TryGetValue(receiver,out NetworkStream? stream))
+            throw new InvalidOperationException($"Peer '{receiver}' is not connected.");
+
+        try {
+            await stream.WriteAsync(framed,ct);
+            await stream.FlushAsync(ct);
+        } catch {
+            _peers.TryRemove(receiver,out _);
+            try {
+                await stream.DisposeAsync();
+            } catch {
+                // ignored
             }
         }
     }
 
-    public void SendBytes(byte[] data) {
+    public void SendBytes(byte[] data,string? receiver = null) {
         ObjectDisposedException.ThrowIf(_disposed,this);
         byte[] framed = FrameMessage(data);
 
-        OnGlycosylReceived?.Invoke(Glycosyl.FromBytes(data));
+        if (receiver == null) {
+            OnGlycosylReceived?.Invoke(Glycosyl.FromBytes(data));
 
-        foreach (KeyValuePair<string,NetworkStream> kvp in _peers) {
-            try {
-                kvp.Value.Write(framed);
-                kvp.Value.Flush();
-            } catch {
-                _peers.TryRemove(kvp.Key,out _);
+            foreach (KeyValuePair<string,NetworkStream> kvp in _peers) {
                 try {
-                    kvp.Value.Dispose();
+                    kvp.Value.Write(framed);
+                    kvp.Value.Flush();
                 } catch {
-                    // ignored
+                    _peers.TryRemove(kvp.Key,out _);
+                    try {
+                        kvp.Value.Dispose();
+                    } catch {
+                        // ignored
+                    }
                 }
+            }
+            return;
+        }
+
+        if (receiver == _nodeId) {
+            OnGlycosylReceived?.Invoke(Glycosyl.FromBytes(data));
+            return;
+        }
+
+        if (!_peers.TryGetValue(receiver,out NetworkStream? stream))
+            throw new InvalidOperationException($"Peer '{receiver}' is not connected.");
+
+        try {
+            stream.Write(framed);
+            stream.Flush();
+        } catch {
+            _peers.TryRemove(receiver,out _);
+            try {
+                stream.Dispose();
+            } catch {
+                // ignored
             }
         }
     }
 
     public void Send(Glycosyl glycosyl) {
         ObjectDisposedException.ThrowIf(_disposed,this);
-        SendBytes(glycosyl.ToBytes());
+        byte[] data = glycosyl.ToBytes();
+        SendBytes(data,ParseReceiver(glycosyl));
+    }
+
+    static string? ParseReceiver(Glycosyl glycosyl) {
+        if (glycosyl is Glycosyl.Query query) return query.Gid;
+        return null;
     }
 
     async Task DiscoveryLoopAsync(CancellationToken ct) {
