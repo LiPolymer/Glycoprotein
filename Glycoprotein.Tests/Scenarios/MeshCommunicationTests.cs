@@ -87,4 +87,53 @@ public sealed class MeshCommunicationTests : ScenarioTestBase {
 
         Output.WriteLine("  ✔ Scenario finished successfully");
     }
+
+    [Fact(DisplayName = "Mesh Communication: UDS mesh - field unregister")]
+    public async Task RemoveField_Scenario() {
+        using var ctx = new SceneContext();
+        var dir = SceneContext.UniqueMeshDir();
+        var alpha = ctx.CreateNode("alpha",
+            new UnixDomainMeshConnexon("alpha", dir));
+        var beta = ctx.CreateNode("beta",
+            new UnixDomainMeshConnexon("beta", dir));
+
+        alpha.AddAction("do_status", () =>
+            Output.WriteLine("  [Alpha] Action 'do_status' fired"));
+        alpha.AddEvent("evt_heartbeat");
+
+        beta.AddAction("do_ping", () =>
+            Output.WriteLine("  [Beta] Action 'do_ping' fired"));
+
+        await ctx.StartAllAsync();
+
+        await StepAsync("Mutual discovery", async () => {
+            await Task.WhenAll(
+                ctx.WaitForDiscoveryAsync("alpha", "beta", TimeSpan.FromSeconds(30)),
+                ctx.WaitForDiscoveryAsync("beta", "alpha", TimeSpan.FromSeconds(30)));
+        });
+
+        await StepAsync("Beta -> Alpha do_status (action)", async () => {
+            await ctx.DispatchAsync("beta", "alpha", "do_status");
+            await Task.Delay(300);
+        });
+
+        await StepAsync("Alpha removes fields", () => {
+            Assert.True(alpha.RemoveField("do_status"));
+            Assert.True(alpha.RemoveField("evt_heartbeat"));
+            Assert.False(alpha.RemoveField("nonexistent"));
+            return Task.CompletedTask;
+        });
+
+        await StepAsync("Propagate removal beacon", async () => {
+            await Task.Delay(1500);
+        });
+
+        await StepAsync("Beta -> Alpha do_status now fails", async () => {
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                ctx.DispatchAsync("beta", "alpha", "do_status"));
+            Output.WriteLine($"  [Beta] expected failure: {ex.Message}");
+        });
+
+        Output.WriteLine("  ✔ RemoveField scenario finished successfully");
+    }
 }

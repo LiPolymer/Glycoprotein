@@ -27,6 +27,10 @@ public sealed class ResponseConductor : IDisposable {
     public void AddRawFunction(Field.Method meta,Func<JsonElement?,JsonElement?> fun) {
         _responders[meta.Id] = (meta,fun);
     }
+    
+    public bool RemoveField(string fid) {
+        return _responders.TryRemove(fid,out _);
+    }
 
     public void AddAction(Field.Method meta,Action action) {
         AddRawFunction(meta with {

@@ -162,20 +162,28 @@ public class GlycoComplex : IDisposable {
         BuildAndPublishBeacon();
         return this;
     }
+    
+    public bool RemoveField(string fid) {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        bool removed = _responseConductor.RemoveField(fid);
+        removed = _eventEmitter.RemoveField(fid) || removed;
+        if (!removed) return false;
+        if (_started) RefreshBeacon();
+        return true;
+    }
 
     bool BuildAndPublishBeacon() {
         List<Field> fields = [];
         fields.AddRange(_responseConductor.Fields);
         fields.AddRange(_eventEmitter.Fields);
 
-        if (fields.Count == 0) return false;
         Glycosyl.Beacon beacon = new Glycosyl.Beacon {
             Id = Id,
             Fields = fields
         };
         _beaconPresenter.Publish(beacon);
         _ = Connexon.SendAsync(beacon, Connexon.CancellationToken);
-        return true;
+        return fields.Count > 0;
     }
 
     public void Dispose() {
