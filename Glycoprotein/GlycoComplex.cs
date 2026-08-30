@@ -19,6 +19,14 @@ public class GlycoComplex : IDisposable {
 
     public event Action<Glycosyl.Beacon>? OnExpired { add => _tracker.OnExpired += value; remove => _tracker.OnExpired -= value; }
 
+    /// <summary>
+    /// 是否将本机 Presenter 的 beacon 信号 (首次出现与内容变化) loopback 到 OnDiscovered 事件。默认 true。
+    /// </summary>
+    public bool LoopbackPresenter {
+        get => _tracker.LoopbackPresenter;
+        set => _tracker.LoopbackPresenter = value;
+    }
+
     public string Id { get; }
 
     public IConnexon Connexon { get; }
@@ -34,6 +42,8 @@ public class GlycoComplex : IDisposable {
         _tracker = new BeaconTracker(Connexon);
         _queryConductor = new QueryConductor(Connexon, () => _tracker.ActivePresenters);
         _eventReceiver = new EventReceiver(Connexon);
+        _tracker.PresenterId = id;
+        _beaconPresenter.OnPayloadChanged += _tracker.NotifyPresenterBeacon;
     }
 
     public GlycoComplex AddAction(string fid, Action action) {

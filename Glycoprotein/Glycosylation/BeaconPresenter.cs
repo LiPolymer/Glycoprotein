@@ -1,4 +1,5 @@
-﻿using Glycoprotein.Connexon;
+﻿using System.Text.Json;
+using Glycoprotein.Connexon;
 
 namespace Glycoprotein.Glycosylation;
 
@@ -7,8 +8,20 @@ public sealed class BeaconPresenter(IConnexon connexon,TimeSpan? interval = null
 
     public volatile Glycosyl.Beacon? BeaconPayload;
 
+    string? _lastSignature;
+
+    public event Action<Glycosyl.Beacon>? OnPayloadChanged;
+
     public void Publish(Glycosyl.Beacon glycosyl) {
+        string signature = BuildSignature(glycosyl);
+        bool changed = BeaconPayload != null && signature != _lastSignature;
         BeaconPayload = glycosyl;
+        _lastSignature = signature;
+        if (changed) OnPayloadChanged?.Invoke(glycosyl);
+    }
+
+    static string BuildSignature(Glycosyl.Beacon glycosyl) {
+        return glycosyl.Id + "|" + JsonSerializer.Serialize(glycosyl.Fields,Glycosyl.Jso);
     }
 
     public Task StartAsync(Glycosyl.Beacon glycosyl,CancellationToken ct = default) {
