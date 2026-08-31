@@ -12,13 +12,20 @@ namespace Glycoprotein.Glycosylation;
 [JsonDerivedType(typeof(Glycosyl.Query),"Query")]
 [JsonDerivedType(typeof(Glycosyl.Reply),"Reply")]
 [JsonDerivedType(typeof(Glycosyl.Event),"Event")]
+[JsonDerivedType(typeof(Glycosyl.Heartbeat),"Heartbeat")]
 public abstract class Glycosyl {
+    public const int ProtocolVersion = 1;
+
     public static readonly JsonSerializerOptions Jso = new JsonSerializerOptions {
         TypeInfoResolver = new DefaultJsonTypeInfoResolver()
     };
 
     public sealed class Beacon : Glycosyl {
         public required string Id { get; init; }
+        
+        public string? Vendor { get; init; }
+        
+        public int? ProtocolVersion { get; init; }
 
         public required List<Field> Fields { get; init; }
 
@@ -27,6 +34,8 @@ public abstract class Glycosyl {
 
     public sealed class Query : Glycosyl {
         public required string Gid { get; init; }
+
+        public string? SourceGid { get; init; }
 
         public required string Fid { get; init; }
 
@@ -39,6 +48,10 @@ public abstract class Glycosyl {
         public JsonElement? Payload { get; init; }
 
         public required Guid Qid { get; init; }
+
+        public string? TargetGid { get; init; }
+
+        public string? Error { get; init; }
     }
 
     public sealed class Event : Glycosyl {
@@ -60,6 +73,13 @@ public abstract class Glycosyl {
         string json = JsonSerializer.Serialize(value, Jso);
         using JsonDocument doc = JsonDocument.Parse(json);
         return doc.RootElement.Clone();
+    }
+
+    /// <summary>
+    /// beacon 内容未变时的心跳, 仅刷新存活, 不携带字段数据。
+    /// </summary>
+    public sealed class Heartbeat : Glycosyl {
+        public required string Id { get; init; }
     }
 
     public byte[] ToBytes() {

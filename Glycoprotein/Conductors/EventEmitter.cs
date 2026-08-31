@@ -21,6 +21,10 @@ public sealed class EventEmitter(IConnexon connexon,string gid) {
             CallArgSchema = Glycosyl.GenerateSchema<T>()
         },typeof(T));
     }
+    
+    public bool RemoveField(string fid) {
+        return _events.TryRemove(fid,out _);
+    }
 
     public async Task EmitEventRawAsync(string fid,JsonElement? args = null,CancellationToken ct = default) {
         await connexon.SendAsync(new Glycosyl.Event {

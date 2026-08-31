@@ -8,23 +8,30 @@ namespace Glycoprotein.Conductors;
 
 public sealed class QueryConductor : IDisposable {
     readonly IConnexon _connexon;
+    readonly string _gid;
     readonly Func<IReadOnlyList<Glycosyl.Beacon>?> _beaconProvider;
 
-    sealed class PendingRequest(TaskCompletionSource<JsonElement?> tcs,CancellationTokenRegistration ctr) {
+    sealed class PendingRequest(TaskCompletionSource<JsonElement?> tcs,CancellationTokenRegistration ctr,CancellationTokenRegistration ttr,CancellationTokenSource? timeoutCts) {
         public TaskCompletionSource<JsonElement?> Tcs { get; } = tcs;
 
-        public CancellationTokenRegistration Ctr { get; } = ctr;
-
         public void Dispose() {
-            Ctr.Dispose();
+            ctr.Dispose();
+            ttr.Dispose();
+            timeoutCts?.Dispose();
         }
     }
 
     readonly ConcurrentDictionary<Guid,PendingRequest> _pending = [];
     bool _disposed;
 
-    public QueryConductor(IConnexon connexon,Func<IReadOnlyList<Glycosyl.Beacon>?> beaconProvider) {
+    /// <summary>
+    /// 查询默认超时, 超时抛 TimeoutException。null 表示不设超时 (依赖调用方取消)。
+    /// </summary>
+    public TimeSpan? DefaultTimeout { get; set; }
+
+    public QueryConductor(IConnexon connexon,string gid,Func<IReadOnlyList<Glycosyl.Beacon>?> beaconProvider) {
         _connexon = connexon;
+        _gid = gid;
         _beaconProvider = beaconProvider;
         _connexon.OnGlycosylReceived += OnReceived;
     }
@@ -73,13 +80,20 @@ public sealed class QueryConductor : IDisposable {
 
         Glycosyl.Query query = new Glycosyl.Query {
             Gid = gid,
+            SourceGid = _gid,
             Fid = fid,
             Payload = param
         };
 
         TaskCompletionSource<JsonElement?> tcs = new TaskCompletionSource<JsonElement?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        CancellationTokenRegistration ctr = ct.Register(() => tcs.TrySetCanceled(ct));
-        PendingRequest pending = new PendingRequest(tcs,ctr);
+        CancellationTokenRegistration ctr = ct.CanBeCanceled ? ct.Register(() => tcs.TrySetCanceled(ct)) : default;
+        CancellationTokenSource? timeoutCts = null;
+        CancellationTokenRegistration ttr = default;
+        if (DefaultTimeout is { } timeout) {
+            timeoutCts = new CancellationTokenSource(timeout);
+            ttr = timeoutCts.Token.Register(() => tcs.TrySetException(new TimeoutException($"Query '{gid}/{fid}' timed out after {timeout}.")));
+        }
+        PendingRequest pending = new PendingRequest(tcs,ctr,ttr,timeoutCts);
 
         try {
             _pending.TryAdd(query.Qid,pending);
@@ -95,7 +109,11 @@ public sealed class QueryConductor : IDisposable {
         if (_disposed) return;
         if (gly is not Glycosyl.Reply reply) return;
         if (!_pending.TryRemove(reply.Qid,out PendingRequest? pending)) return;
-        pending.Tcs.TrySetResult(reply.Payload);
+        if (reply.Error != null) {
+            pending.Tcs.TrySetException(new InvalidOperationException($"Remote handler failed: {reply.Error}"));
+        } else {
+            pending.Tcs.TrySetResult(reply.Payload);
+        }
         pending.Dispose();
     }
 

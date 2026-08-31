@@ -1,12 +1,35 @@
 using System.Collections.Concurrent;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using System.Text.Json;
 
+using System.Text.Json.Nodes;
 using Glycoprotein.Connexon;
 using Glycoprotein.Glycosylation;
 
 namespace Glycoprotein.Conductors;
 
 public sealed class ResponseConductor : IDisposable {
+    static readonly JsonSchemaExporterOptions AnnotatedSchemaOptions = new() {
+        TransformSchemaNode = (ctx,node) => {
+            if (ctx.PropertyInfo?.AttributeProvider is not MemberInfo member) return node;
+            string? title = null;
+            string? description = null;
+            if (member.GetCustomAttribute<DisplayAttribute>() is { } display) {
+                title = display.Name;
+                description = display.Description;
+            } else if (member.GetCustomAttribute<DescriptionAttribute>() is { } desc) {
+                title = desc.Description;
+            }
+            if (title == null && description == null) return node;
+            if (node is not JsonObject obj) return node;
+            if (title != null) obj["title"] = title;
+            if (description != null) obj["description"] = description;
+            return obj;
+        }
+    };
+
     readonly IConnexon _connexon;
     readonly string _gid;
     readonly ConcurrentDictionary<string,(Field.Method Meta,Func<JsonElement?,JsonElement?> Func)> _responders = [];
@@ -26,6 +49,10 @@ public sealed class ResponseConductor : IDisposable {
 
     public void AddRawFunction(Field.Method meta,Func<JsonElement?,JsonElement?> fun) {
         _responders[meta.Id] = (meta,fun);
+    }
+    
+    public bool RemoveField(string fid) {
+        return _responders.TryRemove(fid,out _);
     }
 
     public void AddAction(Field.Method meta,Action action) {
@@ -74,11 +101,26 @@ public sealed class ResponseConductor : IDisposable {
         if (_disposed) return;
         if (gly is not Glycosyl.Query query) return;
         if (query.Gid != _gid) return;
-        if (_responders.TryGetValue(query.Fid,out (Field.Method Meta,Func<JsonElement?,JsonElement?> Func) f)) {
+        if (!_responders.TryGetValue(query.Fid,out (Field.Method Meta,Func<JsonElement?,JsonElement?> Func) f)) return;
+
+        JsonElement? payload = null;
+        string? error = null;
+        try {
+            payload = f.Func(query.Payload);
+        } catch (Exception ex) {
+            error = ex.Message;
+            Console.WriteLine($"字段 '{query.Fid}' 处理异常: {ex.Message}");
+        }
+
+        try {
             _connexon.Send(new Glycosyl.Reply {
-                Payload = f.Func(query.Payload),
-                Qid = query.Qid
+                Payload = payload,
+                Qid = query.Qid,
+                TargetGid = query.SourceGid,
+                Error = error
             });
+        } catch (Exception ex) {
+            Console.WriteLine($"Reply 发送失败: {ex.Message}");
         }
     }
 

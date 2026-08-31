@@ -1,21 +1,11 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Glycoprotein.Connexon;
-using Glycoprotein.Debug.Model;
 using Glycoprotein.Glycosylation;
 
-namespace Glycoprotein.Debug.Framework;
+namespace Glycoprotein.Tests;
 
 public sealed class SceneContext : IDisposable {
     readonly List<GlycoComplex> _nodes = [];
-    readonly RunConfig _config;
-    readonly List<StepResult> _steps = [];
-
-    public IReadOnlyList<StepResult> Steps => _steps;
-    public bool Interactive => _config.Interactive;
-
-    public SceneContext(RunConfig config) {
-        _config = config;
-    }
 
     public GlycoComplex CreateNode(string id, IConnexon connexon) {
         var node = new GlycoComplex(id, connexon);
@@ -51,7 +41,7 @@ public sealed class SceneContext : IDisposable {
             return;
         }
 
-        await tcs.Task.WaitAsync(timeout ?? _config.Timeout);
+        await tcs.Task.WaitAsync(timeout ?? TimeSpan.FromSeconds(60));
     }
 
     public async Task<T> CaptureEventAsync<T>(
@@ -92,49 +82,14 @@ public sealed class SceneContext : IDisposable {
         await emitter.EmitEventAsync(fid, ct);
     }
 
-    public void Assert(bool condition, string message) {
-        if (!condition)
-            throw new AssertionException(message);
-    }
-
-    public void Fail(string message) {
-        throw new AssertionException(message);
-    }
-
-    public void RecordStep(string label, bool passed, string? error = null, TimeSpan? duration = null) {
-        _steps.Add(new StepResult {
-            Label = label,
-            Passed = passed,
-            Error = error,
-            Duration = duration ?? TimeSpan.Zero
-        });
-    }
-
-    public async Task RunStepAsync(string label, Func<Task> step) {
-        var start = DateTime.UtcNow;
-        try {
-            await step();
-            RecordStep(label, true, duration: DateTime.UtcNow - start);
-        }
-        catch (AssertionException ex) {
-            RecordStep(label, false, ex.Message, DateTime.UtcNow - start);
-        }
-        catch (Exception ex) {
-            RecordStep(label, false, $"{ex.GetType().Name}: {ex.Message}", DateTime.UtcNow - start);
-        }
-    }
-
-    public async Task WaitInteractiveAsync() {
-        if (!_config.Interactive) return;
-        Console.Write("  [Press any key to continue]");
-        await Task.Run(() => Console.ReadKey(true));
-        Console.WriteLine();
-    }
-
     public void Dispose() {
         foreach (var n in _nodes) n.Dispose();
         _nodes.Clear();
     }
-}
 
-public sealed class AssertionException(string message) : Exception(message);
+    public static string UniqueMeshDir() => UniqueSocketDir("glycoprotein");
+    public static string UniqueMasteredDir() => UniqueSocketDir("glycoprotein_mastered");
+
+    static string UniqueSocketDir(string basename) =>
+        Path.Combine(Path.GetTempPath(), $"{basename}_{Guid.NewGuid():N}");
+}

@@ -1,0 +1,24 @@
+stages:
+  - test
+
+test:
+  stage: test
+  image: mcr.microsoft.com/dotnet/sdk:10.0
+  variables:
+    # 把 NuGet 缓存放进项目目录，便于 GitLab cache 复用，加速 restore
+    NUGET_PACKAGES: "$CI_PROJECT_DIR/.nuget/packages"
+  cache:
+    key:
+      files:
+        - Glycoprotein/Glycoprotein.csproj
+        - Glycoprotein.Tests/Glycoprotein.Tests.csproj
+    paths:
+      - .nuget/packages
+  script:
+    - dotnet test Glycoprotein.slnx --logger "console;verbosity=detailed" --results-directory "$CI_PROJECT_DIR/TestResults" --logger "junit;LogFileName=results.xml;MethodFormat=Class;FailureBodyFormat=Verbose"
+  artifacts:
+    when: always
+    reports:
+      junit: "**/TestResults/**/*.xml"
+    paths:
+      - "**/TestResults/*.xml"
