@@ -4,10 +4,26 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <Title>Glycoprotein</Title>
+        <Authors>LiPolymer</Authors>
+        <Description>a strange IPC lib for service exposure</Description>
+        <PackageIcon>icon.png</PackageIcon>
+        <Copyright>LiPolymer</Copyright>
+        <PackageProjectUrl>https://github.com/LiPolymer/Glycoprotein</PackageProjectUrl>
+        <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/LiPolymer/Glycoprotein</RepositoryUrl>
     </PropertyGroup>
 
     <ItemGroup>
       <PackageReference Include="JsonSchema.Net" Version="9.2.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="icon.png">
+        <Pack>True</Pack>
+        <PackagePath/>
+      </None>
     </ItemGroup>
 
 </Project>
