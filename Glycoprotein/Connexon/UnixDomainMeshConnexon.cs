@@ -179,6 +179,7 @@ public sealed class UnixDomainMeshConnexon : IConnexon {
 
     static string? ParseReceiver(Glycosyl glycosyl) {
         if (glycosyl is Glycosyl.Query query) return query.Gid;
+        if (glycosyl is Glycosyl.Reply reply) return reply.TargetGid;
         return null;
     }
 

@@ -36,7 +36,11 @@ public sealed class EventReceiver : IDisposable {
         if (_disposed) return;
         if (gly is not Glycosyl.Event evt) return;
         if (!_handlers.TryGetValue((evt.Gid,evt.Fid),out Action<JsonElement?>? h)) return;
-        h(evt.Arg);
+        try {
+            h(evt.Arg);
+        } catch (Exception ex) {
+            Console.WriteLine($"事件处理器异常 [Gid={evt.Gid}, Fid={evt.Fid}]: {ex.Message}");
+        }
     }
 
     public void Dispose() {

@@ -78,11 +78,26 @@ public sealed class ResponseConductor : IDisposable {
         if (_disposed) return;
         if (gly is not Glycosyl.Query query) return;
         if (query.Gid != _gid) return;
-        if (_responders.TryGetValue(query.Fid,out (Field.Method Meta,Func<JsonElement?,JsonElement?> Func) f)) {
+        if (!_responders.TryGetValue(query.Fid,out (Field.Method Meta,Func<JsonElement?,JsonElement?> Func) f)) return;
+
+        JsonElement? payload = null;
+        string? error = null;
+        try {
+            payload = f.Func(query.Payload);
+        } catch (Exception ex) {
+            error = ex.Message;
+            Console.WriteLine($"字段 '{query.Fid}' 处理异常: {ex.Message}");
+        }
+
+        try {
             _connexon.Send(new Glycosyl.Reply {
-                Payload = f.Func(query.Payload),
-                Qid = query.Qid
+                Payload = payload,
+                Qid = query.Qid,
+                TargetGid = query.SourceGid,
+                Error = error
             });
+        } catch (Exception ex) {
+            Console.WriteLine($"Reply 发送失败: {ex.Message}");
         }
     }
 

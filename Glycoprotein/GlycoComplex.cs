@@ -20,7 +20,20 @@ public class GlycoComplex : IDisposable {
     public event Action<Glycosyl.Beacon>? OnExpired { add => _tracker.OnExpired += value; remove => _tracker.OnExpired -= value; }
 
     /// <summary>
-    /// 是否将本机 Presenter 的 beacon 信号 (首次出现与内容变化) loopback 到 OnDiscovered 事件。默认 true。
+    /// 节点 beacon 内容变化时触发 (含本机 Presenter 变化)。
+    /// </summary>
+    public event Action<Glycosyl.Beacon>? OnChanged { add => _tracker.OnChanged += value; remove => _tracker.OnChanged -= value; }
+
+    /// <summary>
+    /// 查询默认超时, 超时抛 TimeoutException。null 表示不设超时。
+    /// </summary>
+    public TimeSpan? QueryTimeout {
+        get => _queryConductor.DefaultTimeout;
+        set => _queryConductor.DefaultTimeout = value;
+    }
+
+    /// <summary>
+    /// 是否将本机 Presenter 的首次出现信号 loopback 到 OnDiscovered 事件 (内容变化始终通过 OnChanged 通知)。默认 true。
     /// </summary>
     public bool LoopbackPresenter {
         get => _tracker.LoopbackPresenter;
@@ -40,7 +53,7 @@ public class GlycoComplex : IDisposable {
         _eventEmitter = new EventEmitter(Connexon, id);
         _beaconPresenter = new BeaconPresenter(Connexon);
         _tracker = new BeaconTracker(Connexon);
-        _queryConductor = new QueryConductor(Connexon, () => _tracker.ActivePresenters);
+        _queryConductor = new QueryConductor(Connexon, id, () => _tracker.ActivePresenters);
         _eventReceiver = new EventReceiver(Connexon);
         _tracker.PresenterId = id;
         _beaconPresenter.OnPayloadChanged += _tracker.NotifyPresenterBeacon;
