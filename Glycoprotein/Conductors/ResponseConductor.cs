@@ -1,35 +1,11 @@
 using System.Collections.Concurrent;
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using System.Reflection;
 using System.Text.Json;
-
-using System.Text.Json.Nodes;
 using Glycoprotein.Connexon;
 using Glycoprotein.Glycosylation;
 
 namespace Glycoprotein.Conductors;
 
 public sealed class ResponseConductor : IDisposable {
-    static readonly JsonSchemaExporterOptions AnnotatedSchemaOptions = new() {
-        TransformSchemaNode = (ctx,node) => {
-            if (ctx.PropertyInfo?.AttributeProvider is not MemberInfo member) return node;
-            string? title = null;
-            string? description = null;
-            if (member.GetCustomAttribute<DisplayAttribute>() is { } display) {
-                title = display.Name;
-                description = display.Description;
-            } else if (member.GetCustomAttribute<DescriptionAttribute>() is { } desc) {
-                title = desc.Description;
-            }
-            if (title == null && description == null) return node;
-            if (node is not JsonObject obj) return node;
-            if (title != null) obj["title"] = title;
-            if (description != null) obj["description"] = description;
-            return obj;
-        }
-    };
-
     readonly IConnexon _connexon;
     readonly string _gid;
     readonly ConcurrentDictionary<string,(Field.Method Meta,Func<JsonElement?,JsonElement?> Func)> _responders = [];

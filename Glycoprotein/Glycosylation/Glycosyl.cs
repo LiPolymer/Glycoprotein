@@ -1,5 +1,9 @@
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Json.Schema;
@@ -62,9 +66,29 @@ public abstract class Glycosyl {
         public JsonElement? Arg { get; set; }
     }
 
+    /// <summary>
+    /// 生成参数类型 schema, 并注入标准特性注解: [Display(Name, Description)] -> title + description, [Description] -> title。
+    /// </summary>
     public static JsonElement GenerateSchema<T>() {
         JsonSchema schema = new JsonSchemaBuilder().FromType<T>().Build();
-        string json = JsonSerializer.Serialize(schema);
+        JsonObject root = JsonNode.Parse(JsonSerializer.Serialize(schema))!.AsObject();
+        if (root["properties"] is JsonObject props) {
+            foreach (PropertyInfo member in typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance)) {
+                string? title = null;
+                string? description = null;
+                if (member.GetCustomAttribute<DisplayAttribute>() is { } display) {
+                    title = display.Name;
+                    description = display.Description;
+                } else if (member.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>() is { } desc) {
+                    title = desc.Description;
+                }
+                if (title == null && description == null) continue;
+                if (props[member.Name] is not JsonObject propNode) continue;
+                if (title != null) propNode["title"] = title;
+                if (description != null) propNode["description"] = description;
+            }
+        }
+        string json = root.ToJsonString();
         using JsonDocument doc = JsonDocument.Parse(json);
         return doc.RootElement.Clone();
     }
