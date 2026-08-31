@@ -1,9 +1,14 @@
-﻿using Glycoprotein.Glycosylation;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using Glycoprotein.Glycosylation;
 using ShulkerRDK.Shared;
 
 namespace Glycoprotein.Demo;
 
 public record PingRespondModel(string Message);
+public record EchoAskingModel(
+    [property:Description("要发送的消息")] string Message, 
+    [property:Display(Name = "起一行", Description = "是否加一行")] bool DoNewLine);
 
 static class Program {
     static readonly Dictionary<string,Func<string[],Task>> Actions = [];
@@ -21,7 +26,13 @@ static class Program {
             },() => {
                 Terminal.WriteLine("Received Ping!");
                 return new PingRespondModel("Pong!");
-            });
+            })
+            .AddAction(new Field.Method {
+                Id = "echo"
+            }, (EchoAskingModel k) => {
+                if (k.DoNewLine) Console.WriteLine();
+                Terminal.WriteLine(k.Message);
+            });;
         await _gly.StartAsync();
         Terminal.WriteLine("&aComplex Started");
         _gly.OnDiscovered += beacon => {

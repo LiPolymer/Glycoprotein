@@ -42,6 +42,11 @@ public class GlycoComplex : IDisposable {
 
     public string Id { get; }
 
+    /// <summary>
+    /// 发行本节点的软件标识, 随 beacon 广播, 便于网络上其他节点辨认节点来源。null 表示未声明。
+    /// </summary>
+    public string? Vendor { get; set; }
+
     public IConnexon Connexon { get; }
 
     public IReadOnlyList<Glycosyl.Beacon> Presenters { get => _tracker.ActivePresenters; }
@@ -202,6 +207,8 @@ public class GlycoComplex : IDisposable {
 
         Glycosyl.Beacon beacon = new Glycosyl.Beacon {
             Id = Id,
+            Vendor = Vendor,
+            ProtocolVersion = Glycosyl.ProtocolVersion,
             Fields = fields
         };
         _beaconPresenter.Publish(beacon);

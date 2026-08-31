@@ -1,5 +1,9 @@
 using System.Collections.Concurrent;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Schema;
 using Glycoprotein.Connexon;
 using Glycoprotein.Glycosylation;
@@ -7,6 +11,25 @@ using Glycoprotein.Glycosylation;
 namespace Glycoprotein.Conductors;
 
 public sealed class ResponseConductor : IDisposable {
+    static readonly JsonSchemaExporterOptions AnnotatedSchemaOptions = new() {
+        TransformSchemaNode = (ctx,node) => {
+            if (ctx.PropertyInfo?.AttributeProvider is not MemberInfo member) return node;
+            string? title = null;
+            string? description = null;
+            if (member.GetCustomAttribute<DisplayAttribute>() is { } display) {
+                title = display.Name;
+                description = display.Description;
+            } else if (member.GetCustomAttribute<DescriptionAttribute>() is { } desc) {
+                title = desc.Description;
+            }
+            if (title == null && description == null) return node;
+            if (node is not JsonObject obj) return node;
+            if (title != null) obj["title"] = title;
+            if (description != null) obj["description"] = description;
+            return obj;
+        }
+    };
+
     readonly IConnexon _connexon;
     readonly string _gid;
     readonly ConcurrentDictionary<string,(Field.Method Meta,Func<JsonElement?,JsonElement?> Func)> _responders = [];
@@ -44,8 +67,8 @@ public sealed class ResponseConductor : IDisposable {
 
     public void AddFunction<T1,T2>(Field.Method meta,Func<T1,T2> fun) {
         AddRawFunction(meta with {
-            QuerySchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T1))),
-            ReceiptSchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T2)))
+            QuerySchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T1),AnnotatedSchemaOptions)),
+            ReceiptSchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T2),AnnotatedSchemaOptions))
         },je => {
             if (je == null) return null;
             T1? param = je.Value.Deserialize<T1>();
@@ -57,13 +80,13 @@ public sealed class ResponseConductor : IDisposable {
     public void AddFunction<T>(Field.Method meta,Func<T> query) {
         AddRawFunction(meta with {
             QuerySchema = null,
-            ReceiptSchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T)))
+            ReceiptSchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T),AnnotatedSchemaOptions))
         },_ => JsonSerializer.SerializeToElement(query()));
     }
 
     public void AddAction<T>(Field.Method meta,Action<T> reactor) {
         AddRawFunction(meta with {
-            QuerySchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T))),
+            QuerySchema = JsonSerializer.SerializeToElement(Glycosyl.Jso.GetJsonSchemaAsNode(typeof(T),AnnotatedSchemaOptions)),
             ReceiptSchema = null
         },je => {
             if (je == null) return null;

@@ -12,12 +12,18 @@ namespace Glycoprotein.Glycosylation;
 [JsonDerivedType(typeof(Glycosyl.Event),"Event")]
 [JsonDerivedType(typeof(Glycosyl.Heartbeat),"Heartbeat")]
 public abstract class Glycosyl {
+    public const int ProtocolVersion = 1;
+
     public static readonly JsonSerializerOptions Jso = new JsonSerializerOptions {
         TypeInfoResolver = new DefaultJsonTypeInfoResolver()
     };
 
     public sealed class Beacon : Glycosyl {
         public required string Id { get; init; }
+        
+        public string? Vendor { get; init; }
+        
+        public int? ProtocolVersion { get; init; }
 
         public required List<Field> Fields { get; init; }
 

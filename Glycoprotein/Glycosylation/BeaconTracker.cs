@@ -51,9 +51,9 @@ public sealed class BeaconTracker(IConnexon connexon,TimeSpan? expiry = null,Tim
     public void NotifyPresenterBeacon(Glycosyl.Beacon beacon) {
         ObjectDisposedException.ThrowIf(_disposed,this);
         _presenters[beacon.Id] = (beacon,DateTime.UtcNow,BeaconPresenter.BuildSignature(beacon));
-        SafeInvoke(OnChanged,beacon);
         if (!LoopbackPresenter) return;
-        SafeInvoke(OnDiscovered,beacon);
+        SafeInvoke(OnChanged,beacon);
+        //SafeInvoke(OnDiscovered,beacon);
     }
 
     void OnReceived(Glycosyl glycosyl) {
